@@ -319,13 +319,20 @@ public class AIFetchService
             if (string.IsNullOrEmpty(trimmed)) continue;
 
             // Check if line contains a valid node link
-            if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase))
+ if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase))
             {
                 nodes.Add(trimmed);
             }

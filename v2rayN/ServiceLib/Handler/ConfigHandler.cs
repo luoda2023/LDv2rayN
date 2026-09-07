@@ -47,7 +47,7 @@ public static class ConfigHandler
             InItem inItem = new()
             {
                 Protocol = nameof(EInboundProtocol.socks),
-                LocalPort = 10808,
+                LocalPort = 20808,
                 UdpEnabled = true,
                 SniffingEnabled = true,
                 RouteOnly = false,

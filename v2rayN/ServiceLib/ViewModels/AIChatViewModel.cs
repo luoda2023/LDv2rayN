@@ -38,9 +38,11 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
 🔗 **分析链接** — 粘贴一个URL（GitHub仓库、订阅链接、节点分享页面等），我会自动下载内容、提取VPN节点、验证可用性，然后添加到你的分组中。
 
+📋 **批量导入** — 直接粘贴一批节点链接（每行一个），我会自动识别、逐个验证后导入到指定分组。支持Base64编码的订阅内容。
+
 🔍 **自动搜索** — 我会自动在GitHub上搜索最新的免费VPN节点，逐个验证后添加到分组。
 
-💡 **使用方法**：在下方输入框粘贴链接后按回车，或点击「分析链接」按钮。点击「自动搜索」开始全自动搜索。
+💡 **使用方法**：在下方输入框粘贴链接或节点后按回车，或点击「分析链接」按钮。点击「自动搜索」开始全自动搜索。
 
 支持的节点协议：`vmess://` `vless://` `trojan://` `ss://` `hy2://` `tuic://`");
     }
@@ -103,33 +105,48 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
         var url = ChatInput.Trim();
         ChatInput = string.Empty;
-        IsProcessing = true;
+        IsProcessing = true; AddMessage(AIChatRole.User, $"🔗 分析这个内容：{(url.Length > 200 ? url[..200] + "..." : url)}");
 
-        AddMessage(AIChatRole.User, $"🔗 分析这个链接：{url}");
+ try
+ {
+ var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+ if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+ {
+ AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥，然后再使用AI助手。");
+ return;
+ }
 
-        try
-        {
-            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
-            if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
-            {
-                AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥，然后再使用AI助手。");
-                return;
-            }
+ // Fast path: user pasted direct node links (vmess://, vless://, etc.)
+ var directNodes = ParseNodesFromText(url);
+ // Also try Base64 decode — many subscriptions are Base64-encoded
+ if (directNodes.Count == 0 && Utils.IsBase64String(url))
+ {
+ directNodes = ParseNodesFromText(Utils.Base64Decode(url));
+ }
 
-            AddMessage(AIChatRole.AI, "🔍 正在下载并分析链接内容...");
+ List<string>? nodes;
+ if (directNodes.Count > 0)
+ {
+ nodes = directNodes;
+ AddMessage(AIChatRole.AI, $"📋 检测到 **{nodes.Count}** 个直接粘贴的节点链接，跳过下载步骤，直接验证...");
+ }
+ else
+ {
+ AddMessage(AIChatRole.AI, "🔍 正在下载并分析链接内容...");
 
-            // Step 1: Download URL content
-            var content = await DownloadUrlContent(url);
-            if (content.IsNullOrEmpty())
-            {
-                AddMessage(AIChatRole.AI, $"❌ 无法下载链接内容。请检查URL是否正确、网络是否正常。\n\n`{url}`");
-                return;
-            }
+ // Step 1: Download URL content
+ var content = await DownloadUrlContent(url);
+ if (content.IsNullOrEmpty())
+ {
+ AddMessage(AIChatRole.AI, $"❌ 无法下载链接内容，也无法识别为节点链接。\n\n请检查：\n- URL是否正确、网络是否正常\n- 或者直接粘贴节点链接（vmess://、vless://等）\n\n`{(url.Length > 100 ? url[..100] + "..." : url)}`");
+ return;
+ }
 
-            AddMessage(AIChatRole.AI, $"📥 已下载内容（{content.Length:N0} 字符），正在让AI分析提取节点...");
+ AddMessage(AIChatRole.AI, $"📥 已下载内容（{content.Length:N0} 字符），正在让AI分析提取节点...");
 
-            // Step 2: Use AI to extract nodes from content
-            var nodes = await ExtractNodesFromContent(aiConfig, content, url);
+ // Step 2: Use AI to extract nodes from content
+ nodes = await ExtractNodesFromContent(aiConfig, content, url);
+ }
             if (nodes == null || nodes.Count == 0)
             {
                 AddMessage(AIChatRole.AI, $"⚠️ 未能从链接中提取到有效的VPN节点。\n\n可能原因：\n- 页面内容不包含节点链接\n- 节点格式无法识别\n- 需要登录才能查看内容\n\n**来源URL**: `{url}`");
@@ -292,16 +309,20 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
     #region Content Helpers
 
-    private string ExtractProtocol(string nodeLink)
-    {
-        if (nodeLink.StartsWith("vmess://")) return "VMess";
-        if (nodeLink.StartsWith("vless://")) return "VLESS";
-        if (nodeLink.StartsWith("trojan://")) return "Trojan";
-        if (nodeLink.StartsWith("ss://")) return "Shadowsocks";
-        if (nodeLink.StartsWith("hy2://") || nodeLink.StartsWith("hysteria2://")) return "Hysteria2";
-        if (nodeLink.StartsWith("tuic://")) return "TUIC";
-        return "Unknown";
-    }
+ private string ExtractProtocol(string nodeLink)
+ {
+ if (nodeLink.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase)) return "VMess";
+ if (nodeLink.StartsWith("vless://", StringComparison.OrdinalIgnoreCase)) return "VLESS";
+ if (nodeLink.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase)) return "Trojan";
+ if (nodeLink.StartsWith("ss://", StringComparison.OrdinalIgnoreCase)) return "Shadowsocks";
+ if (nodeLink.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase)) return "Hysteria2";
+ if (nodeLink.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase)) return "TUIC";
+ if (nodeLink.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase)) return "SOCKS";
+ if (nodeLink.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase)) return "WireGuard";
+ if (nodeLink.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase)) return "AnyTLS";
+ if (nodeLink.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase)) return "Naive";
+ return "Unknown";
+ }
 
     private string ExtractAddress(string nodeLink)
     {
@@ -504,15 +525,20 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         foreach (var line in lines)
         {
             var trimmed = line.Trim().TrimStart('-', '*', ' ', '•');
-            if (string.IsNullOrEmpty(trimmed)) continue;
-
-            if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(trimmed)) continue;if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) ||
+ trimmed.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase))
             {
                 nodes.Add(trimmed);
             }

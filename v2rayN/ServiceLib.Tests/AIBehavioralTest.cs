@@ -260,7 +260,8 @@ public class AIBehavioralTest
         // In that case, skip the assertion.
         if (thrown != null)
         {
-            await thrown.Message.Should().Contain("Object reference");
+            await thrown.Should().NotBeNull();
+			await (thrown is NullReferenceException).Should().BeTrue();
         }
 
         // Either way, this documents the coupling behavior

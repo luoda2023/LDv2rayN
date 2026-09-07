@@ -151,6 +151,7 @@ public class TunModeItem
     public bool EnableIPv6Address { get; set; } = false;
     public string IcmpRouting { get; set; }
     public bool EnableLegacyProtect { get; set; } = true;
+    public bool EnableKillSwitch { get; set; } = true;
     public List<string>? RouteExcludeAddress { get; set; }
     public string IPv4Address { get; set; }
     public string IPv6Address { get; set; }
@@ -286,6 +287,7 @@ public class SimpleDNSItem
     public string? Hosts { get; set; }
     public string? DirectExpectedIPs { get; set; }
     public bool? EnableHappyEyeballs { get; set; }
+    public bool? ForceDnsThroughProxy { get; set; }
 }
 
 [Serializable]

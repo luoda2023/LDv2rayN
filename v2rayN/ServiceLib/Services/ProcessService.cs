@@ -9,6 +9,7 @@ public class ProcessService : IDisposable
     public int Id => _process.Id;
     public IntPtr Handle => _process.Handle;
     public bool HasExited => _process.HasExited;
+    public Process Process => _process;
 
     public ProcessService(
         string fileName,
@@ -122,6 +123,9 @@ public class ProcessService : IDisposable
         {
             if (e.Data.IsNotEmpty())
             {
+                // Persist core (connection) output through the encrypted log store,
+                // never in plaintext on disk.
+                Logging.SaveLog(e.Data);
                 _ = _updateFunc?.Invoke(false, e.Data + Environment.NewLine);
             }
         }

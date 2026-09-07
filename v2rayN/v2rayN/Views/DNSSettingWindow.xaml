@@ -303,13 +303,21 @@
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
                             Style="{StaticResource ToolbarTextBlock}"
-                            Text="{x:Static resx:ResUI.TbSettingsUseSystemHosts}" />
+                            Text="🔒 Force DNS Through Proxy" />
                         <ToggleButton
-                            x:Name="togUseSystemHosts"
+                            x:Name="togForceDnsThroughProxy"
                             Grid.Row="1"
                             Grid.Column="1"
                             Margin="{StaticResource Margin8}"
                             HorizontalAlignment="Left" />
+                        <TextBlock
+                            Grid.Row="1"
+                            Grid.Column="2"
+                            Margin="{StaticResource Margin8}"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ToolbarTextBlock}"
+                            Text="All DNS queries go through proxy tunnel"
+                            TextWrapping="Wrap" />
 
                         <TextBlock
                             Grid.Row="2"
@@ -317,9 +325,9 @@
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
                             Style="{StaticResource ToolbarTextBlock}"
-                            Text="{x:Static resx:ResUI.TbAddCommonDNSHosts}" />
+                            Text="{x:Static resx:ResUI.TbSettingsUseSystemHosts}" />
                         <ToggleButton
-                            x:Name="togAddCommonHosts"
+                            x:Name="togUseSystemHosts"
                             Grid.Row="2"
                             Grid.Column="1"
                             Margin="{StaticResource Margin8}"
@@ -331,8 +339,22 @@
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
                             Style="{StaticResource ToolbarTextBlock}"
+                            Text="{x:Static resx:ResUI.TbAddCommonDNSHosts}" />
+                        <ToggleButton
+                            x:Name="togAddCommonHosts"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Margin="{StaticResource Margin8}"
+                            HorizontalAlignment="Left" />
+
+                        <TextBlock
+                            Grid.Row="4"
+                            Grid.Column="0"
+                            Margin="{StaticResource Margin8}"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource ToolbarTextBlock}"
                             Text="{x:Static resx:ResUI.TbFakeIP}" />
-                        <Grid Grid.Row="3" Grid.Column="1">
+                        <Grid Grid.Row="4" Grid.Column="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -352,7 +374,7 @@
                                 Style="{StaticResource DefComboBox}" />
                         </Grid>
                         <TextBlock
-                            Grid.Row="3"
+                            Grid.Row="4"
                             Grid.Column="2"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -361,7 +383,7 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="4"
+                            Grid.Row="5"
                             Grid.Column="0"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -369,12 +391,12 @@
                             Text="{x:Static resx:ResUI.TbBlockSVCBHTTPSQueries}" />
                         <ToggleButton
                             x:Name="togBlockBindingQuery"
-                            Grid.Row="4"
+                            Grid.Row="5"
                             Grid.Column="1"
                             Margin="{StaticResource Margin8}"
                             HorizontalAlignment="Left" />
                         <TextBlock
-                            Grid.Row="4"
+                            Grid.Row="5"
                             Grid.Column="2"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -383,7 +405,7 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="5"
+                            Grid.Row="6"
                             Grid.Column="0"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -391,12 +413,12 @@
                             Text="{x:Static resx:ResUI.TbBlockAAAAQueries}" />
                         <ToggleButton
                             x:Name="togBlockAAAAQuery"
-                            Grid.Row="5"
+                            Grid.Row="6"
                             Grid.Column="1"
                             Margin="{StaticResource Margin8}"
                             HorizontalAlignment="Left" />
                         <TextBlock
-                            Grid.Row="5"
+                            Grid.Row="6"
                             Grid.Column="2"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -405,7 +427,7 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="6"
+                            Grid.Row="7"
                             Grid.Column="0"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -413,14 +435,14 @@
                             Text="{x:Static resx:ResUI.TbValidateDirectExpectedIPs}" />
                         <ComboBox
                             x:Name="cmbDirectExpectedIPs"
-                            Grid.Row="6"
+                            Grid.Row="7"
                             Grid.Column="1"
                             Width="200"
                             Margin="{StaticResource Margin8}"
                             IsEditable="True"
                             Style="{StaticResource DefComboBox}" />
                         <TextBlock
-                            Grid.Row="6"
+                            Grid.Row="7"
                             Grid.Column="2"
                             Margin="{StaticResource Margin8}"
                             VerticalAlignment="Center"
@@ -429,7 +451,7 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="7"
+                            Grid.Row="8"
                             Grid.Column="0"
                             Grid.ColumnSpan="3"
                             Margin="{StaticResource Margin8}"
@@ -438,7 +460,7 @@
                             Text="{x:Static resx:ResUI.TbDNSHostsConfig}" />
                         <TextBox
                             x:Name="txtHosts"
-                            Grid.Row="8"
+                            Grid.Row="9"
                             Grid.Column="0"
                             Grid.ColumnSpan="3"
                             Margin="{StaticResource Margin8}"

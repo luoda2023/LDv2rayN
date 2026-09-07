@@ -15,6 +15,7 @@ public class CoreManager
     private ProcessService? _processService;
     private ProcessService? _processPreService;
     private bool _linuxSudo = false;
+    private bool _wasTunActive = false;
     private Func<bool, string, Task>? _updateFunc;
     private const string _tag = "CoreHandler";
 
@@ -87,6 +88,9 @@ public class CoreManager
             await WindowsUtils.RemoveTunDevice();
         }
 
+        // Track TUN state for Kill Switch
+        _wasTunActive = mainContext?.IsTunEnabled == true || preContext?.IsTunEnabled == true;
+
         await CoreStart(mainContext);
         await WaitForProxyPort(preContext);
         await CoreStartPreService(preContext);
@@ -96,6 +100,19 @@ public class CoreManager
         if (_processService != null)
         {
             await UpdateFunc(true, $"{node.GetSummary()}");
+
+            // Kill Switch: core started successfully, deactivate blocking
+            if (_wasTunActive)
+            {
+                await KillSwitchHandler.Deactivate();
+            }
+
+            // Subscribe to unexpected exit events for Kill Switch
+            SubscribeToProcessExit(_processService);
+            if (_processPreService != null)
+            {
+                SubscribeToProcessExit(_processPreService);
+            }
         }
     }
 
@@ -144,6 +161,12 @@ public class CoreManager
     {
         try
         {
+            // Kill Switch: activate before stopping core if TUN was active
+            if (_wasTunActive && _config?.TunModeItem.EnableKillSwitch == true)
+            {
+                await KillSwitchHandler.Activate(_config);
+            }
+
             if (_linuxSudo)
             {
                 await CoreAdminManager.Instance.KillProcessAsLinuxSudo();
@@ -171,6 +194,37 @@ public class CoreManager
     }
 
     #region Private
+
+    private void SubscribeToProcessExit(ProcessService proc)
+    {
+        try
+        {
+            // Subscribe to process exit event for immediate response
+            proc.Process.Exited += async (sender, e) =>
+            {
+                try
+                {
+                    // Process exited — activate Kill Switch if TUN was active
+                    if (_wasTunActive && _config?.TunModeItem.EnableKillSwitch == true)
+                    {
+                        Logging.SaveLog("Core process exited unexpectedly — activating Kill Switch");
+                        await KillSwitchHandler.Activate(_config);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.SaveLog(_tag, ex);
+                }
+            };
+
+            // Ensure the process has EnableRaisingEvents set
+            proc.Process.EnableRaisingEvents = true;
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+        }
+    }
 
     private async Task CoreStart(CoreConfigContext context)
     {

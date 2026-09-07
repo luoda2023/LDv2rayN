@@ -41,6 +41,11 @@ public partial class CoreConfigSingboxService
             var tag = string.Format(Global.SingboxDirectDNSTagTemplate, i + 1);
             directDns.tag = tag;
             directDns.domain_resolver = Global.SingboxLocalDNSTag;
+            // Force all DNS through proxy tunnel to prevent DNS leak
+            if (simpleDnsItem.ForceDnsThroughProxy == true)
+            {
+                directDns.detour = Global.ProxyTag;
+            }
         }
 
         var remoteDnsList = ParseDnsAddresses(simpleDnsItem.RemoteDNS ?? Global.DomainRemoteDNSAddress.First());

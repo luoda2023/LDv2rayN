@@ -26,6 +26,7 @@ public partial class DNSSettingWindow
 
         this.WhenActivated(disposables =>
         {
+            this.Bind(ViewModel, vm => vm.ForceDnsThroughProxy, v => v.togForceDnsThroughProxy.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.UseSystemHosts, v => v.togUseSystemHosts.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.AddCommonHosts, v => v.togAddCommonHosts.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.FakeIP, v => v.togFakeIP.IsChecked).DisposeWith(disposables);

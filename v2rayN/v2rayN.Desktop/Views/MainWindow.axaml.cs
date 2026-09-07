@@ -67,6 +67,16 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 var dialog = new AISettingWindow { ViewModel = vm };
                 await dialog.ShowDialog(this);
             };
+            menuLeakDetection.Click += async (s, e) =>
+            {
+                var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
+                var dialog = new LeakDetectionWindow { ViewModel = vm };
+                await dialog.ShowDialog(this);
+            };
+            menuPromotion.Click += (s, e) =>
+            {
+                ProcUtils.ProcessStart(Global.Website);
+            };
             this.BindCommand(ViewModel, vm => vm.FullConfigTemplateCmd, v => v.menuFullConfigTemplate).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.GlobalHotkeySettingCmd, v => v.menuGlobalHotkeySetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RebootAsAdminCmd, v => v.menuRebootAsAdmin).DisposeWith(disposables);

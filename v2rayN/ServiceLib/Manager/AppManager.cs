@@ -133,6 +133,10 @@ public sealed class AppManager
             await ProfileExManager.Instance.SaveTo();
             await StatisticsManager.Instance.SaveTo();
             await CoreManager.Instance.CoreStop();
+
+            // Kill Switch: ensure firewall rules are removed on exit
+            await KillSwitchHandler.ForceDeactivate();
+
             StatisticsManager.Instance.Close();
 
             Logging.SaveLog("AppExitAsync End");

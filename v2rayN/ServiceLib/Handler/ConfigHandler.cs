@@ -136,6 +136,7 @@ public static class ConfigHandler
         config.SimpleDNSItem.ServeStale ??= false;
         config.SimpleDNSItem.ParallelQuery ??= false;
         config.SimpleDNSItem.EnableHappyEyeballs ??= true;
+        config.SimpleDNSItem.ForceDnsThroughProxy ??= true;
 
         config.SpeedTestItem ??= new();
         if (config.SpeedTestItem.SpeedTestTimeout < 10)

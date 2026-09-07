@@ -129,6 +129,7 @@ public partial class OptionSettingWindow
             this.Bind(ViewModel, vm => vm.TunEnableIPv6Address, v => v.togEnableIPv6Address.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.TunIcmpRouting, v => v.cmbIcmpRoutingPolicy.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.TunEnableLegacyProtect, v => v.togEnableLegacyProtect.IsChecked).DisposeWith(disposables);
+            this.Bind(ViewModel, vm => vm.TunEnableKillSwitch, v => v.togEnableKillSwitch.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.TunRouteExcludeAddress, v => v.txtRouteExcludeAddress.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.TunIPv4Address, v => v.cmbIpv4Address.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.TunIPv6Address, v => v.cmbIpv6Address.Text).DisposeWith(disposables);

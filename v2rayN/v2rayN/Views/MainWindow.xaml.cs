@@ -68,6 +68,17 @@ public partial class MainWindow
                 dialog.ShowDialog(this);
                 await Task.CompletedTask;
             };
+            menuLeakDetection.Click += async (s, e) =>
+            {
+                var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
+                var dialog = new LeakDetectionWindow { DataContext = vm };
+                dialog.ShowDialog(this);
+                await Task.CompletedTask;
+            };
+            menuPromotion.Click += (s, e) =>
+            {
+                ProcUtils.ProcessStart(Global.Website);
+            };
             this.BindCommand(ViewModel, vm => vm.FullConfigTemplateCmd, v => v.menuFullConfigTemplate).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.GlobalHotkeySettingCmd, v => v.menuGlobalHotkeySetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RebootAsAdminCmd, v => v.menuRebootAsAdmin).DisposeWith(disposables);

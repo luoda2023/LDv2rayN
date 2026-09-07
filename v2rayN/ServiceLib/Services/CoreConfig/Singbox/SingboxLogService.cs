@@ -25,11 +25,9 @@ public partial class CoreConfigSingboxService
             {
                 _coreConfig.log.disabled = true;
             }
-            if (_config.CoreBasicItem.LogEnabled)
-            {
-                var dtNow = DateTime.Now;
-                _coreConfig.log.output = Utils.GetLogPath($"sbox_{dtNow:yyyy-MM-dd}.txt");
-            }
+            // Never point the core at a plaintext log file — its stdout is captured
+            // by the app and persisted through the encrypted log store.
+            _coreConfig.log.output = null;
         }
         catch (Exception ex)
         {

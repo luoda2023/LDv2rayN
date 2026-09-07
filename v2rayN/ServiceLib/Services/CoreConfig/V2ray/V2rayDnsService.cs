@@ -99,11 +99,15 @@ public partial class CoreConfigV2rayService
                 .ToList();
             if (directDnsTags.Count > 0)
             {
+                // Force all DNS through proxy tunnel to prevent DNS leak
+                var dnsOutbound = simpleDnsItem?.ForceDnsThroughProxy == true
+                    ? Global.ProxyTag
+                    : Global.DirectTag;
                 _coreConfig.routing.rules.Add(new()
                 {
                     type = "field",
                     inboundTag = directDnsTags,
-                    outboundTag = Global.DirectTag,
+                    outboundTag = dnsOutbound,
                 });
             }
 

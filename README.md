@@ -5,27 +5,19 @@
 作者：LUODA  
 网址：[dicad.cn](https://dicad.cn)
 
-Support [Xray](https://github.com/XTLS/Xray-core) and [sing-box](https://github.com/SagerNet/sing-box) and [others](https://github.com/2dust/v2rayN/wiki/List-of-supported-cores)
-
 ---
 
 ## 使用说明与责任声明
 
-**本软件仅限本人内部使用，其它人使用我不承担任何责任。** 使用者须自行确认运行环境、配置内容及相关法律责任。
+**本软件仅限本人内部使用，其它人使用我不承担任何责任。**
 
-## Download / 下载
-
-Download the latest release here:
-
-在这里下载最新版本：
-
-[https://github.com/2dust/v2rayN/releases](https://github.com/2dust/v2rayN/releases)
+使用者须自行确认运行环境、配置内容及相关法律责任。本软件基于开源项目二次开发，作者不对其它人使用本软件产生的任何后果负责。
 
 ---
 
 ## 安全特性 / Security Features
 
-LDv2rayN 在原版 v2rayN 基础上进行了以下安全增强：
+LDv2rayN 在原版基础上进行了以下安全增强：
 
 ### DNS 泄露防护
 - 默认启用 `BlockAAAAQuery`，阻止 IPv6 DNS 泄露
@@ -53,28 +45,6 @@ LDv2rayN 在原版 v2rayN 基础上进行了以下安全增强：
 
 ---
 
-## Documentation / 使用文档
-
-Read the Wiki for usage guides and configuration details.
-
-请阅读 Wiki 获取使用说明和配置教程。
-
-[https://github.com/2dust/v2rayN/wiki](https://github.com/2dust/v2rayN/wiki)
-
----
-
-## Supported Platforms / 支持平台
-
-| Platform / 平台 | x64 | x86 | arm64 | riscv64 | loong64 |
-| --- | --- | --- | --- | --- | --- |
-| Windows | ✅ | ✅ | ✅ | - | - |
-| Linux | ✅ | - | ✅ | ✅ | ✅ |
-| macOS | ✅ | - | ✅ | - | - |
-
-Minimum OS requirements: [Release files introduction](https://github.com/2dust/v2rayN/wiki/Release-files-introduction) / 最低系统要求：[发布文件介绍](https://github.com/2dust/v2rayN/wiki/Release-files-introduction)
-
----
-
 ## 隐私与安全边界
 
 本项目仅提供本地代理配置与连接管理，不承诺对抗 DPI、单位扫描、运营商审计或隐藏真实网络身份。请仅在获得授权的环境中使用，并根据系统管理员要求配置 Windows Defender Firewall；软件不会自动写入不可逆或隐蔽的防火墙规则。
@@ -83,27 +53,10 @@ Minimum OS requirements: [Release files introduction](https://github.com/2dust/v
 
 ---
 
-## GPG Verification / GPG 签名校验
+## 版权声明
 
-Release files are signed with GPG to verify authenticity and integrity, helping prevent mirror, ISP, or CDN hijacking.
+本软件基于开源项目二次开发，遵循 GNU General Public License v3.0。
 
-发布文件已使用 GPG 签名，可用于校验文件真实性与完整性，预防镜像站、运营商或 CDN 劫持。
-
-### Fingerprint / 公钥指纹
-
-```text
-7694 5E9F 3E9A 168F 8070 F195 805D 661C
-134D FAF6 8903 C199 463C 31E5 AE90 3AE0
-```
-
----
-
-## Community / 社区
-
-Telegram Group / Telegram 群组：
-
-[https://t.me/v2rayN](https://t.me/v2rayN)
-
-Telegram Channel / Telegram 频道：
-
-[https://t.me/github_2dust](https://t.me/github_2dust)
+原作者：2dust  
+二次开发：LUODA  
+网址：[dicad.cn](https://dicad.cn)

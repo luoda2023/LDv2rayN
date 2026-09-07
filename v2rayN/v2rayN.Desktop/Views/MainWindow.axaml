@@ -67,6 +67,7 @@
                         <MenuItem x:Name="menuRoutingSetting" Header="{x:Static resx:ResUI.menuRoutingSetting}" />
                         <MenuItem x:Name="menuDNSSetting" Header="{x:Static resx:ResUI.menuDNSSetting}" />
                         <MenuItem x:Name="menuAISetting" Header="🤖 AI智能获取" />
+                        <MenuItem x:Name="menuLeakDetection" Header="🔒 Leak Detection" />
                         <MenuItem x:Name="menuFullConfigTemplate" Header="{x:Static resx:ResUI.menuFullConfigTemplate}" />
                         <MenuItem
                             x:Name="menuGlobalHotkeySetting"
@@ -93,6 +94,7 @@
                     </MenuItem>
 
                     <MenuItem x:Name="menuHelp" Header="{x:Static resx:ResUI.menuHelp}">
+                        <MenuItem x:Name="menuPromotion" Header="{x:Static resx:ResUI.menuPromotion}" />
                     </MenuItem>
 
                     <MenuItem x:Name="menuReload" Header="{x:Static resx:ResUI.menuReload}" />

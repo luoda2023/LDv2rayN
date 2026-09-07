@@ -199,6 +199,10 @@
                                     Height="{StaticResource MenuItemHeight}"
                                     Header="🤖 AI智能获取" />
                                 <MenuItem
+                                    x:Name="menuLeakDetection"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="🔒 Leak Detection" />
+                                <MenuItem
                                     x:Name="menuFullConfigTemplate"
                                     Height="{StaticResource MenuItemHeight}"
                                     Header="{x:Static resx:ResUI.menuFullConfigTemplate}" />
@@ -259,6 +263,10 @@
                                         <TextBlock Text="{x:Static resx:ResUI.menuHelp}" />
                                     </StackPanel>
                                 </MenuItem.Header>
+                                <MenuItem
+                                    x:Name="menuPromotion"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="{x:Static resx:ResUI.menuPromotion}" />
                             </MenuItem>
                         </Menu>
                         <Separator />

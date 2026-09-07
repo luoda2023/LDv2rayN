@@ -97,6 +97,7 @@ public partial class OptionSettingViewModel : MyReactiveObject, ICloseable
     [Reactive] public partial bool TunEnableIPv6Address { get; set; }
     [Reactive] public partial string TunIcmpRouting { get; set; }
     [Reactive] public partial bool TunEnableLegacyProtect { get; set; }
+    [Reactive] public partial bool TunEnableKillSwitch { get; set; }
     [Reactive] public partial string TunRouteExcludeAddress { get; set; }
     [Reactive] public partial string TunIPv4Address { get; set; }
     [Reactive] public partial string TunIPv6Address { get; set; }
@@ -221,6 +222,7 @@ public partial class OptionSettingViewModel : MyReactiveObject, ICloseable
         TunEnableIPv6Address = _config.TunModeItem.EnableIPv6Address;
         TunIcmpRouting = _config.TunModeItem.IcmpRouting;
         TunEnableLegacyProtect = _config.TunModeItem.EnableLegacyProtect;
+        TunEnableKillSwitch = _config.TunModeItem.EnableKillSwitch;
         TunRouteExcludeAddress = Utils.List2String(_config.TunModeItem.RouteExcludeAddress, true);
         TunIPv4Address = _config.TunModeItem.IPv4Address;
         TunIPv6Address = _config.TunModeItem.IPv6Address;
@@ -390,6 +392,7 @@ public partial class OptionSettingViewModel : MyReactiveObject, ICloseable
         _config.TunModeItem.EnableIPv6Address = TunEnableIPv6Address;
         _config.TunModeItem.IcmpRouting = TunIcmpRouting;
         _config.TunModeItem.EnableLegacyProtect = TunEnableLegacyProtect;
+        _config.TunModeItem.EnableKillSwitch = TunEnableKillSwitch;
         _config.TunModeItem.RouteExcludeAddress = Utils.String2List(TunRouteExcludeAddress);
         _config.TunModeItem.IPv4Address = TunIPv4Address;
         _config.TunModeItem.IPv6Address = TunIPv6Address;

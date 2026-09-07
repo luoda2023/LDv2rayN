@@ -359,17 +359,38 @@
                             Grid.Column="0"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
+                            Text="强制DNS走代理隧道" />
+                        <ToggleSwitch
+                            x:Name="togForceDnsThroughProxy"
+                            Grid.Row="6"
+                            Grid.Column="1"
+                            Margin="{StaticResource Margin4}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center" />
+                        <TextBlock
+                            Grid.Row="6"
+                            Grid.Column="2"
+                            Margin="{StaticResource Margin4}"
+                            VerticalAlignment="Center"
+                            Text="所有DNS查询强制通过代理隧道，防止DNS泄露"
+                            TextWrapping="Wrap" />
+
+                        <TextBlock
+                            Grid.Row="7"
+                            Grid.Column="0"
+                            Margin="{StaticResource Margin4}"
+                            VerticalAlignment="Center"
                             Text="{x:Static resx:ResUI.TbValidateDirectExpectedIPs}" />
                         <ComboBox
                             x:Name="cmbDirectExpectedIPs"
-                            Grid.Row="6"
+                            Grid.Row="7"
                             Grid.Column="1"
                             Width="200"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
                             IsEditable="True" />
                         <TextBlock
-                            Grid.Row="6"
+                            Grid.Row="7"
                             Grid.Column="2"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
@@ -377,7 +398,7 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="7"
+                            Grid.Row="8"
                             Grid.Column="0"
                             Grid.ColumnSpan="3"
                             Margin="{StaticResource Margin4}"
@@ -386,7 +407,7 @@
 
                         <TextBox
                             x:Name="txtHosts"
-                            Grid.Row="8"
+                            Grid.Row="9"
                             Grid.Column="0"
                             Grid.ColumnSpan="3"
                             Margin="{StaticResource Margin4}"

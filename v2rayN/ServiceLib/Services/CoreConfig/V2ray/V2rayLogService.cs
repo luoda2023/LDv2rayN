@@ -6,19 +6,11 @@ public partial class CoreConfigV2rayService
     {
         try
         {
-            if (_config.CoreBasicItem.LogEnabled)
-            {
-                var dtNow = DateTime.Now;
-                _coreConfig.log.loglevel = _config.CoreBasicItem.Loglevel;
-                _coreConfig.log.access = Utils.GetLogPath($"Vaccess_{dtNow:yyyy-MM-dd}.txt");
-                _coreConfig.log.error = Utils.GetLogPath($"Verror_{dtNow:yyyy-MM-dd}.txt");
-            }
-            else
-            {
-                _coreConfig.log.loglevel = _config.CoreBasicItem.Loglevel;
-                _coreConfig.log.access = null;
-                _coreConfig.log.error = null;
-            }
+            _coreConfig.log.loglevel = _config.CoreBasicItem.Loglevel;
+            // Never let the core write plaintext log files. Core stdout/stderr is
+            // captured by the app and persisted through the encrypted log store.
+            _coreConfig.log.access = null;
+            _coreConfig.log.error = null;
         }
         catch (Exception ex)
         {

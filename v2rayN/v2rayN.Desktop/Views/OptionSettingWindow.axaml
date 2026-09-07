@@ -1030,7 +1030,7 @@
                         Margin="{StaticResource Margin4}"
                         ColumnDefinitions="Auto,Auto,Auto"
                         DockPanel.Dock="Top"
-                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
                         <TextBlock
                             Grid.Row="2"
@@ -1139,10 +1139,30 @@
                             Grid.Column="0"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
+                            Text="🛡️ Kill Switch" />
+                        <ToggleSwitch
+                            x:Name="togEnableKillSwitch"
+                            Grid.Row="9"
+                            Grid.Column="1"
+                            Margin="{StaticResource Margin4}"
+                            HorizontalAlignment="Left" />
+                        <TextBlock
+                            Grid.Row="9"
+                            Grid.Column="2"
+                            Margin="{StaticResource Margin4}"
+                            VerticalAlignment="Center"
+                            Text="Block all traffic if proxy disconnects"
+                            TextWrapping="Wrap" />
+
+                        <TextBlock
+                            Grid.Row="10"
+                            Grid.Column="0"
+                            Margin="{StaticResource Margin4}"
+                            VerticalAlignment="Center"
                             Text="{x:Static resx:ResUI.TbRouteExcludeAddress}" />
                         <TextBox
                             x:Name="txtRouteExcludeAddress"
-                            Grid.Row="9"
+                            Grid.Row="10"
                             Grid.Column="1"
                             Width="200"
                             Margin="{StaticResource Margin4}"
@@ -1150,7 +1170,7 @@
                             Classes="TextArea"
                             TextWrapping="Wrap" />
                         <TextBlock
-                            Grid.Row="9"
+                            Grid.Row="10"
                             Grid.Column="2"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
@@ -1158,28 +1178,28 @@
                             TextWrapping="Wrap" />
 
                         <TextBlock
-                            Grid.Row="10"
+                            Grid.Row="11"
                             Grid.Column="0"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
                             Text="{x:Static resx:ResUI.TbIpv4Address}" />
                         <ComboBox
                             x:Name="cmbIpv4Address"
-                            Grid.Row="10"
+                            Grid.Row="11"
                             Grid.Column="1"
                             Width="200"
                             Margin="{StaticResource Margin4}"
                             HorizontalAlignment="Left" />
 
                         <TextBlock
-                            Grid.Row="11"
+                            Grid.Row="12"
                             Grid.Column="0"
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
                             Text="{x:Static resx:ResUI.TbIpv6Address}" />
                         <ComboBox
                             x:Name="cmbIpv6Address"
-                            Grid.Row="11"
+                            Grid.Row="12"
                             Grid.Column="1"
                             Width="200"
                             Margin="{StaticResource Margin4}"

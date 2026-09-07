@@ -197,7 +197,11 @@
                                 <MenuItem
                                     x:Name="menuAISetting"
                                     Height="{StaticResource MenuItemHeight}"
-                                    Header="🤖 AI智能获取" />
+                                    Header="🤖 AI智能获取设置" />
+                                <MenuItem
+                                    x:Name="menuAIChat"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="💬 AI代理助手" />
                                 <MenuItem
                                     x:Name="menuLeakDetection"
                                     Height="{StaticResource MenuItemHeight}"

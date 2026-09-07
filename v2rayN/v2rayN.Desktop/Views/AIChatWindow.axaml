@@ -1,0 +1,160 @@
+<Window
+    x:Class="v2rayN.Desktop.Views.AIChatWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:ServiceLib.ViewModels"
+    xmlns:vm2="using:ServiceLib.Models"
+    x:DataType="vm:AIChatViewModel"
+    Title="🤖 AI智能代理助手"
+    Width="750"
+    Height="650"
+    MinWidth="550"
+    MinHeight="450"
+    WindowStartupLocation="CenterOwner"
+    Topmost="True"
+    Background="#1E1E2E">
+
+    <Grid Margin="8" RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#313244" CornerRadius="10,10,0,0" Padding="16,10" Margin="0,0,0,2">
+            <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Grid.Column="0" FontSize="17" FontWeight="Bold" Foreground="#CDD6F4" Text="🤖 AI智能代理助手" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Foreground="#6C7086" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Right"
+                    Text="粘贴链接让AI分析  |  或让AI自动搜索免费节点"/>
+            </Grid>
+        </Border>
+
+        <!-- Settings Bar -->
+        <Border Grid.Row="1" Background="#181825" Padding="10,6" Margin="0,0,0,2">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock VerticalAlignment="Center" Foreground="#A6ADC8" Text="分组:" Margin="0,0,4,0"/>
+                <TextBox x:Name="txtTargetGroup" Width="110" Background="#313244" Foreground="#CDD6F4" BorderBrush="#45475A" Text="AI自动获取" FontSize="12" Padding="4,2"/>
+                <TextBlock VerticalAlignment="Center" Foreground="#A6ADC8" Text="  最大节点:" Margin="8,0,4,0"/>
+                <TextBox x:Name="txtMaxNodes" Width="50" Background="#313244" Foreground="#CDD6F4" BorderBrush="#45475A" Text="50" FontSize="12" Padding="4,2"/>
+                <CheckBox x:Name="chkAutoTest" IsChecked="True" VerticalAlignment="Center" Foreground="#A6ADC8" Margin="10,0,0,0" Content="自动验证"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Chat Messages Area -->
+        <Border Grid.Row="2" Background="#11111B" Padding="4">
+            <ScrollViewer x:Name="scrollChat" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Messages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm2:AIChatMessage">
+                            <Grid Margin="0,3" HorizontalAlignment="Stretch">
+                                <Grid.Styles>
+                                    <Style Selector="Border.user-bubble">
+                                        <Setter Property="Background" Value="#45475A"/>
+                                        <Setter Property="CornerRadius" Value="12,12,2,12"/>
+                                        <Setter Property="Padding" Value="14,10"/>
+                                        <Setter Property="Margin" Value="60,4,10,4"/>
+                                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                                        <Setter Property="MaxWidth" Value="525"/>
+                                    </Style>
+                                    <Style Selector="Border.ai-bubble">
+                                        <Setter Property="Background" Value="#313244"/>
+                                        <Setter Property="CornerRadius" Value="12,12,12,2"/>
+                                        <Setter Property="Padding" Value="14,10"/>
+                                        <Setter Property="Margin" Value="10,4,60,4"/>
+                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                        <Setter Property="MaxWidth" Value="525"/>
+                                    </Style>
+                                    <Style Selector="Border.system-bubble">
+                                        <Setter Property="Background" Value="#181825"/>
+                                        <Setter Property="BorderBrush" Value="#45475A"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="CornerRadius" Value="8"/>
+                                        <Setter Property="Padding" Value="12,8"/>
+                                        <Setter Property="Margin" Value="80,6,80,6"/>
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    </Style>
+                                </Grid.Styles>
+
+                                <!-- User Bubble -->
+                                <Border Classes="user-bubble" IsVisible="{Binding IsUser}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Content}" Foreground="#CDD6F4" FontSize="13.5" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}" Foreground="#6C7086" FontSize="10" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- AI Bubble -->
+                                <Border Classes="ai-bubble" IsVisible="{Binding IsAI}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Content}" Foreground="#CDD6F4" FontSize="13.5" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}" Foreground="#6C7086" FontSize="10" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- System Bubble with Node Results -->
+                                <Border Classes="system-bubble" IsVisible="{Binding IsSystem}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Content}" Foreground="#F9E2AF" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                        <ItemsControl ItemsSource="{Binding NodeResults}" Margin="0,6,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm2:AIChatNodeResult">
+                                                    <Border CornerRadius="6" Padding="10,6" Margin="0,2" BorderThickness="1">
+                                                        <Border.Styles>
+                                                            <Style Selector="Border.pass">
+                                                                <Setter Property="Background" Value="#1E3A2B"/>
+                                                                <Setter Property="BorderBrush" Value="#A6E3A1"/>
+                                                            </Style>
+                                                            <Style Selector="Border.fail">
+                                                                <Setter Property="Background" Value="#3A1E1E"/>
+                                                                <Setter Property="BorderBrush" Value="#F38BA8"/>
+                                                            </Style>
+                                                            <Style Selector="Border.testing">
+                                                                <Setter Property="Background" Value="#3A3A1E"/>
+                                                                <Setter Property="BorderBrush" Value="#F9E2AF"/>
+                                                            </Style>
+                                                        </Border.Styles>
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <TextBlock Grid.Column="0" Text="{Binding Protocol}" Foreground="#89B4FA" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding DisplayName}" Foreground="#CDD6F4" FontSize="12"/>
+                                                                <TextBlock Text="{Binding Address}" Foreground="#6C7086" FontSize="10"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0">
+                                                                <TextBlock.Styles>
+                                                                    <Style Selector="TextBlock.pass">
+                                                                        <Setter Property="Foreground" Value="#A6E3A1"/>
+                                                                    </Style>
+                                                                    <Style Selector="TextBlock.fail">
+                                                                        <Setter Property="Foreground" Value="#F38BA8"/>
+                                                                    </Style>
+                                                                    <Style Selector="TextBlock.testing">
+                                                                        <Setter Property="Foreground" Value="#F9E2AF"/>
+                                                                    </Style>
+                                                                </TextBlock.Styles>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}" Foreground="#6C7086" FontSize="10" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Input Bar -->
+        <Border Grid.Row="3" Background="#181825" CornerRadius="0,0,10,10" Padding="10,8">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox x:Name="txtInput" Grid.Column="0" Background="#313244" Foreground="#CDD6F4" BorderBrush="#45475A" FontSize="14" Padding="10,8"
+                         KeyDown="TxtInput_KeyDown" PlaceholderText="粘贴链接、订阅URL或节点分享链接..."/>
+                <Button x:Name="btnAnalyzeUrl" Grid.Column="1" Width="110" Margin="8,0,0,0" Padding="10,8"
+                        Background="#89B4FA" Foreground="#1E1E2E" FontWeight="Bold" FontSize="13"
+                        Content="🔍 分析链接" Click="BtnAnalyzeUrl_Click"/>
+                <Button x:Name="btnAutoSearch" Grid.Column="2" Width="110" Margin="6,0,0,0" Padding="10,8"
+                        Background="#A6E3A1" Foreground="#1E1E2E" FontWeight="Bold" FontSize="13"
+                        Content="🤖 自动搜索" Click="BtnAutoSearch_Click"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -68,6 +68,12 @@ public partial class MainWindow
                 dialog.ShowDialog(this);
                 await Task.CompletedTask;
             };
+            menuAIChat.Click += async (s, e) =>
+            {
+                var dialog = new AIChatWindow();
+                dialog.ShowDialog(this);
+                await Task.CompletedTask;
+            };
             menuLeakDetection.Click += async (s, e) =>
             {
                 var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();

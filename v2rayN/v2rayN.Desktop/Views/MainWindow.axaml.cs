@@ -67,6 +67,11 @@ public partial class MainWindow : WindowBase<MainWindowViewModel>
                 var dialog = new AISettingWindow { ViewModel = vm };
                 await dialog.ShowDialog(this);
             };
+            menuAIChat.Click += async (s, e) =>
+            {
+                var dialog = new AIChatWindow();
+                await dialog.ShowDialog(this);
+            };
             menuLeakDetection.Click += async (s, e) =>
             {
                 var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();

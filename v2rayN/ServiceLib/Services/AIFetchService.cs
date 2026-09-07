@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -342,20 +343,34 @@ public class AIFetchService
     {
         try
         {
-            // Parse the node and try to connect
             var profile = FmtHandler.ResolveConfig(nodeLink, out _);
             if (profile == null || !profile.IsValid())
             {
                 return false;
             }
 
-            // Try a quick connectivity test via the node
-            // For now, we do a basic validation - check if the address resolves
-            if (profile.Address.IsNotEmpty() && !profile.Address.Equals("127.0.0.1"))
+            var address = profile.Address;
+            var port = profile.Port;
+
+            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
+                return true;
+            }
+
+            // TCP connect test — more accurate than DNS-only
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(address, port, cts.Token);
+                return client.Connected;
+            }
+            catch
+            {
+                // Fall back to DNS check if TCP fails
                 try
                 {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(profile.Address);
+                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
                     return hostEntry.AddressList.Length > 0;
                 }
                 catch
@@ -363,8 +378,6 @@ public class AIFetchService
                     return false;
                 }
             }
-
-            return true;
         }
         catch
         {

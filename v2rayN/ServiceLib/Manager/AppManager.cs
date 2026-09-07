@@ -109,6 +109,9 @@ public sealed class AppManager
             await MigrateProfileExtra();
         }).Wait();
 
+        // Start AI auto-crawl scheduler if enabled
+        AISchedulerService.Start(_config);
+
         return true;
     }
 
@@ -136,6 +139,9 @@ public sealed class AppManager
 
             // Kill Switch: ensure firewall rules are removed on exit
             await KillSwitchHandler.ForceDeactivate();
+
+            // Stop AI auto-crawl scheduler
+            AISchedulerService.Stop();
 
             StatisticsManager.Instance.Close();
 

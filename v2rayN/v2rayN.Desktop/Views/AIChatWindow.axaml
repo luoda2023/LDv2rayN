@@ -33,6 +33,9 @@
                 <TextBlock VerticalAlignment="Center" Foreground="#A6ADC8" Text="  最大节点:" Margin="8,0,4,0"/>
                 <TextBox x:Name="txtMaxNodes" Width="50" Background="#313244" Foreground="#CDD6F4" BorderBrush="#45475A" Text="50" FontSize="12" Padding="4,2"/>
                 <CheckBox x:Name="chkAutoTest" IsChecked="True" VerticalAlignment="Center" Foreground="#A6ADC8" Margin="10,0,0,0" Content="自动验证"/>
+                <CheckBox x:Name="chkAutoCrawl" IsChecked="False" VerticalAlignment="Center" Foreground="#F9E2AF" Margin="10,0,0,0" Content="定时爬取"/>
+                <TextBlock VerticalAlignment="Center" Foreground="#A6ADC8" Text=" 间隔(分):" Margin="4,0,2,0"/>
+                <TextBox x:Name="txtCrawlInterval" Width="40" Background="#313244" Foreground="#CDD6F4" BorderBrush="#45475A" Text="120" FontSize="12" Padding="4,2"/>
             </StackPanel>
         </Border>
 

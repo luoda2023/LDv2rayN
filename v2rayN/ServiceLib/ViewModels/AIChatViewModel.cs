@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using ServiceLib.Models;
 
 namespace ServiceLib.ViewModels;
@@ -14,6 +15,10 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
     [Reactive] public partial string TargetGroup { get; set; } = "AI自动获取";
     [Reactive] public partial int MaxNodes { get; set; } = 50;
     [Reactive] public partial bool AutoTest { get; set; } = true;
+    [Reactive] public partial bool AutoCrawlEnabled { get; set; }
+    [Reactive] public partial int AutoCrawlIntervalMinutes { get; set; } = 120;
+    private Timer? _autoCrawlTimer;
+    private CancellationTokenSource? _autoCrawlCts;
 
     /// <summary>Observable collection of chat messages for the UI</summary>
     public ObservableCollection<AIChatMessage> Messages { get; } = new();
@@ -23,6 +28,8 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
         TargetGroup = aiConfig.AiGroupRemarks ?? "AI自动获取";
         MaxNodes = aiConfig.MaxNodesPerSearch;
+        AutoCrawlEnabled = aiConfig.AutoCrawlEnabled;
+        AutoCrawlIntervalMinutes = aiConfig.AutoCrawlIntervalMinutes;
 
         // Show welcome message
         AddMessage(AIChatRole.AI, @"**欢迎使用 AI智能代理助手** 🤖
@@ -36,6 +43,54 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 💡 **使用方法**：在下方输入框粘贴链接后按回车，或点击「分析链接」按钮。点击「自动搜索」开始全自动搜索。
 
 支持的节点协议：`vmess://` `vless://` `trojan://` `ss://` `hy2://` `tuic://`");
+    }
+
+    /// <summary>Toggle periodic auto-crawl on/off</summary>
+    public void ToggleAutoCrawl()
+    {
+        _config.AIConfigItem ??= new AIConfigItem();
+        _config.AIConfigItem.AutoCrawlEnabled = AutoCrawlEnabled;
+        _config.AIConfigItem.AutoCrawlIntervalMinutes = AutoCrawlIntervalMinutes;
+        _ = ConfigHandler.SaveConfig(_config);
+
+        if (AutoCrawlEnabled)
+        {
+            StartAutoCrawlTimer();
+            AddMessage(AIChatRole.System, $"⏰ 已开启自动爬取，每 {AutoCrawlIntervalMinutes} 分钟自动搜索免费节点");
+        }
+        else
+        {
+            StopAutoCrawlTimer();
+            AddMessage(AIChatRole.System, "⏰ 已关闭自动爬取");
+        }
+    }
+
+    private void StartAutoCrawlTimer()
+    {
+        StopAutoCrawlTimer();
+        _autoCrawlCts = new CancellationTokenSource();
+        var interval = TimeSpan.FromMinutes(Math.Max(AutoCrawlIntervalMinutes, 5));
+        _autoCrawlTimer = new Timer(async _ =>
+        {
+            if (IsProcessing) return;
+            try
+            {
+                AddMessage(AIChatRole.System, $"⏰ 定时触发：开始自动搜索免费节点...");
+                await AutoSearchAsync();
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog(_tag, ex);
+            }
+        }, null, interval, interval);
+    }
+
+    private void StopAutoCrawlTimer()
+    {
+        _autoCrawlCts?.Cancel();
+        _autoCrawlCts = null;
+        _autoCrawlTimer?.Dispose();
+        _autoCrawlTimer = null;
     }
 
     /// <summary>Analyze a user-submitted URL: download → extract nodes → test → add to group</summary>
@@ -405,12 +460,28 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                 return false;
             }
 
-            // DNS resolution check
-            if (profile.Address.IsNotEmpty() && !profile.Address.Equals("127.0.0.1"))
+            var address = profile.Address;
+            var port = profile.Port;
+
+            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
+                return true;
+            }
+
+            // TCP connect test — more accurate than DNS-only
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(address, port, cts.Token);
+                return client.Connected;
+            }
+            catch
+            {
+                // If TCP connect fails, fall back to DNS check
                 try
                 {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(profile.Address);
+                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
                     return hostEntry.AddressList.Length > 0;
                 }
                 catch
@@ -418,8 +489,6 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                     return false;
                 }
             }
-
-            return true;
         }
         catch
         {

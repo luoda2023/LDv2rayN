@@ -26,6 +26,11 @@ public partial class AIChatWindow : Window
         txtTargetGroup.Text = ViewModel.TargetGroup;
         txtMaxNodes.Text = ViewModel.MaxNodes.ToString();
         chkAutoTest.IsChecked = ViewModel.AutoTest;
+        chkAutoCrawl.IsChecked = ViewModel.AutoCrawlEnabled;
+        txtCrawlInterval.Text = ViewModel.AutoCrawlIntervalMinutes.ToString();
+
+        chkAutoCrawl.Checked += (_, _) => ApplyAutoCrawl();
+        chkAutoCrawl.Unchecked += (_, _) => ApplyAutoCrawl();
 
         // Update UI when processing state changes
         ViewModel.PropertyChanged += (_, args) =>
@@ -98,5 +103,15 @@ public partial class AIChatWindow : Window
 
         await ViewModel.AutoSearchAsync();
         txtInput.Focus();
+    }
+
+    private void ApplyAutoCrawl()
+    {
+        ViewModel.AutoCrawlEnabled = chkAutoCrawl.IsChecked == true;
+        if (int.TryParse(txtCrawlInterval.Text, out var interval))
+        {
+            ViewModel.AutoCrawlIntervalMinutes = interval;
+        }
+        ViewModel.ToggleAutoCrawl();
     }
 }

@@ -1,0 +1,169 @@
+<Window
+    x:Class="v2rayN.Desktop.Views.AISettingWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dd="clr-namespace:v2rayN.Desktop.DesignData"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:resx="clr-namespace:ServiceLib.Resx;assembly=ServiceLib"
+    xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
+    Title="AI智能获取设置"
+    Width="600"
+    Height="500"
+    x:DataType="vms:AISettingViewModel"
+    Design.DataContext="{x:Static dd:DesignData.OptionSetting}"
+    ShowInTaskbar="False"
+    WindowStartupLocation="CenterScreen"
+    mc:Ignorable="d">
+    <DockPanel Margin="{StaticResource Margin8}">
+        <StackPanel
+            Margin="{StaticResource Margin4}"
+            HorizontalAlignment="Center"
+            DockPanel.Dock="Bottom"
+            Orientation="Horizontal">
+            <Button
+                x:Name="btnSave"
+                Width="100"
+                Content="{x:Static resx:ResUI.TbConfirm}"
+                IsDefault="True" />
+            <Button
+                x:Name="btnCancel"
+                Width="100"
+                Margin="{StaticResource MarginLr8}"
+                Content="{x:Static resx:ResUI.TbCancel}"
+                IsCancel="True" />
+        </StackPanel>
+
+        <StackPanel Margin="{StaticResource Margin4}">
+            <TextBlock
+                Margin="{StaticResource Margin4}"
+                FontWeight="Bold"
+                Text="🤖 AI智能获取免费VPN节点" />
+
+            <TextBlock
+                Margin="{StaticResource Margin4}"
+                TextWrapping="Wrap"
+                Text="通过AI自动搜索GitHub上的免费VPN节点，自动验证后添加到分组中" />
+
+            <Separator Margin="{StaticResource Margin4}" />
+
+            <Grid
+                Margin="{StaticResource Margin4}"
+                ColumnDefinitions="Auto,*"
+                RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+
+                <TextBlock
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="启用AI功能" />
+                <ToggleSwitch
+                    x:Name="togAIEnabled"
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="{StaticResource Margin4}"
+                    HorizontalAlignment="Left" />
+
+                <TextBlock
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="API地址" />
+                <TextBox
+                    x:Name="txtApiUrl"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Width="400"
+                    Margin="{StaticResource Margin4}"
+                    PlaceholderText="http://47.114.75.115:40000/v1" />
+
+                <TextBlock
+                    Grid.Row="2"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="API密钥" />
+                <TextBox
+                    x:Name="txtApiKey"
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    Width="400"
+                    Margin="{StaticResource Margin4}"
+                    PasswordChar="*" />
+
+                <TextBlock
+                    Grid.Row="3"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="模型ID" />
+                <TextBox
+                    x:Name="txtModelId"
+                    Grid.Row="3"
+                    Grid.Column="1"
+                    Width="400"
+                    Margin="{StaticResource Margin4}"
+                    PlaceholderText="hermesAPI" />
+
+                <TextBlock
+                    Grid.Row="4"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="分组名称" />
+                <TextBox
+                    x:Name="txtAiGroupRemarks"
+                    Grid.Row="4"
+                    Grid.Column="1"
+                    Width="400"
+                    Margin="{StaticResource Margin4}"
+                    PlaceholderText="AI自动获取" />
+
+                <TextBlock
+                    Grid.Row="5"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="搜索间隔(分钟)" />
+                <TextBox
+                    x:Name="txtSearchInterval"
+                    Grid.Row="5"
+                    Grid.Column="1"
+                    Width="200"
+                    Margin="{StaticResource Margin4}"
+                    PlaceholderText="60" />
+
+                <TextBlock
+                    Grid.Row="6"
+                    Grid.Column="0"
+                    Margin="{StaticResource Margin4}"
+                    VerticalAlignment="Center"
+                    Text="每次最大节点数" />
+                <TextBox
+                    x:Name="txtMaxNodes"
+                    Grid.Row="6"
+                    Grid.Column="1"
+                    Width="200"
+                    Margin="{StaticResource Margin4}"
+                    PlaceholderText="50" />
+            </Grid>
+
+            <Separator Margin="{StaticResource Margin4}" />
+
+            <Button
+                x:Name="btnTestFetch"
+                Width="200"
+                Margin="{StaticResource Margin4}"
+                Content="🔍 立即测试AI获取"
+                HorizontalAlignment="Left" />
+
+            <TextBlock
+                x:Name="txtStatus"
+                Margin="{StaticResource Margin4}"
+                Text="{Binding StatusMessage}"
+                TextWrapping="Wrap" />
+        </StackPanel>
+    </DockPanel>
+</Window>

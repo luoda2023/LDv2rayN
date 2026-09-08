@@ -298,8 +298,7 @@ public class SimpleDNSItem
  public bool Enabled { get; set; } = true;
  public int SearchIntervalMinutes { get; set; } = 60;
  public string? AiGroupRemarks { get; set; } = "AI自动获取";
- public int MaxNodesPerSearch { get; set; } = 50;
- public bool AutoCrawlEnabled { get; set; } = false;
+ public int MaxNodesPerSearch { get; set; } = 50;    public bool AutoCrawlEnabled { get; set; } = true;
  public int AutoCrawlIntervalMinutes { get; set; } = 120;
 
  /// 

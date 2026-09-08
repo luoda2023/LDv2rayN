@@ -100,19 +100,30 @@ public sealed class AppManager
     public bool InitComponents()
     {
         Logging.SaveLog($"v2rayN start up | {Utils.GetRuntimeInfo()}");
-        Logging.LoggingEnabled(_config.GuiItem.EnableLog);
+        Logging.LoggingEnabled(_config.GuiItem.EnableLog);            // First determine the port value
+            _ = StatePort;
+            _ = StatePort2;
 
-        //First determine the port value
-        _ = StatePort;
-        _ = StatePort2;
+            Task.Run(async () =>
+            {
+                await MigrateProfileExtra();
+            }).Wait();
 
-        Task.Run(async () =>
-        {
-            await MigrateProfileExtra();
-        }).Wait();
+            // One-shot migration: default-enable AI auto-crawl for users whose
+            // saved config pre-dates this change (or has AIConfigItem missing).
+            var aiCfg = _config.AIConfigItem;
+            if (aiCfg == null)
+            {
+                aiCfg = new AIConfigItem();
+                _config.AIConfigItem = aiCfg;
+            }
+            else if (!aiCfg.AutoCrawlEnabled)
+            {
+                aiCfg.AutoCrawlEnabled = true;
+            }
 
-        // Start AI auto-crawl scheduler if enabled
-        AISchedulerService.Start(_config);
+            // Start AI auto-crawl scheduler if enabled
+            AISchedulerService.Start(_config);
 
         // Start the external AI API server if enabled
         AiApiServer.Start(_config);

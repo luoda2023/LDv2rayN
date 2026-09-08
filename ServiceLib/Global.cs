@@ -86,7 +86,7 @@ public class Global
     public const int MinFontSize = 8;
     public const int MinFontSizeCount = 13;
     public const string RebootAs = "rebootas";
-    public const string AvaAssets = "avares://v2rayN/Assets/";
+    public const string AvaAssets = "avares://LDv2rayN/Assets/";
     public const string AIFetchGroupName = "AI自动获取";
     public const string LocalAppData = "LDV2RAYN_LOCAL_APPLICATION_DATA_V2";
     public const string V2RayLocalAsset = "V2RAY_LOCATION_ASSET";

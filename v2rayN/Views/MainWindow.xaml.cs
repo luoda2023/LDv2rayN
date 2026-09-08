@@ -61,13 +61,23 @@ public partial class MainWindow
             this.BindCommand(ViewModel, vm => vm.OptionSettingCmd, v => v.menuOptionSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RoutingSettingCmd, v => v.menuRoutingSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);
-            menuAISetting.Click += async (s, e) =>
+        menuAISetting.Click += async (s, e) =>
+        {
+            try
             {
                 var vm = new ServiceLib.ViewModels.AISettingViewModel();
                 var dialog = new AISettingWindow { DataContext = vm };
                 dialog.ShowDialog(this);
-                await Task.CompletedTask;
-            };
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"menuAISetting failed: {ex}");
+                MessageBox.Show(
+                    $"AI 设置启动失败：{ex.Message}",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            await Task.CompletedTask;
+        };
             menuAIChat.Click += async (s, e) =>
             {
                 var dialog = new AIChatWindow();

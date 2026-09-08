@@ -635,10 +635,10 @@ public class Global
         "file",
         "http"
     ];
-
-    public static readonly Dictionary<ECoreType, string> CoreUrls = new()
-    {
-        { ECoreType.v2fly, "v2fly/v2ray-core" },
+public static readonly Dictionary<ECoreType, string> CoreUrls = new()
+{
+ { ECoreType.v2rayN, "LUODA/LDv2rayN" },
+ { ECoreType.v2fly, "v2fly/v2ray-core" },
         { ECoreType.v2fly_v5, "v2fly/v2ray-core" },
         { ECoreType.Xray, "XTLS/Xray-core" },
         { ECoreType.sing_box, "SagerNet/sing-box" },

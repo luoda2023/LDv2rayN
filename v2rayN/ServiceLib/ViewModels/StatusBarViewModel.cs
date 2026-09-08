@@ -139,26 +139,25 @@ public partial class StatusBarViewModel : MyReactiveObject
         this.WhenAnyValue(x => x.EnableTun)
             .SubscribeAsync(async _ => await DoEnableTun());
 
-        CopyProxyCmdToClipboardCmd = ReactiveCommand.CreateFromTask(async () =>
-        {
-            await CopyProxyCmdToClipboard();
-        });
-
-        NotifyLeftClickCmd = ReactiveCommand.CreateFromTask(async () =>
-        {
-            ShowHideWindowRequested.Publish(null);
-            await Task.CompletedTask;
-        });
-        ShowWindowCmd = ReactiveCommand.CreateFromTask(async () =>
-        {
-            ShowHideWindowRequested.Publish(true);
-            await Task.CompletedTask;
-        });
-        HideWindowCmd = ReactiveCommand.CreateFromTask(async () =>
-        {
-            ShowHideWindowRequested.Publish(false);
-            await Task.CompletedTask;
-        });
+ CopyProxyCmdToClipboardCmd = ReactiveCommand.CreateFromTask(async () =>
+ {
+ await CopyProxyCmdToClipboard();
+ });
+ NotifyLeftClickCmd = ReactiveCommand.CreateFromTask(async () =>
+ {
+ ShowHideWindowRequested.Publish(null);
+ await Task.CompletedTask;
+ });
+ ShowWindowCmd = ReactiveCommand.CreateFromTask(async () =>
+ {
+ ShowHideWindowRequested.Publish(true);
+ await Task.CompletedTask;
+ });
+ HideWindowCmd = ReactiveCommand.CreateFromTask(async () =>
+ {
+ ShowHideWindowRequested.Publish(false);
+ await Task.CompletedTask;
+ });
 
         AddServerViaClipboardCmd = ReactiveCommand.CreateFromTask(async () =>
             {
@@ -211,7 +210,7 @@ public partial class StatusBarViewModel : MyReactiveObject
 
         #endregion AppEvents
 
-        _ = Init();
+    _ = Init();
     }
 
     private async Task Init()

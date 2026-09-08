@@ -303,10 +303,11 @@ public partial class MainWindowViewModel : MyReactiveObject
             .AsObservable()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeAsync(async blProxy => await UpdateSubscriptionProcess("", blProxy));
-
+ 
         _ = Init();
+ 
     }
-
+ 
     private async Task Init()
     {
         AppManager.Instance.ShowInTaskbar = true;

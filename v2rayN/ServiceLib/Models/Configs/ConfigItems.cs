@@ -286,22 +286,33 @@ public class SimpleDNSItem
     public bool? ParallelQuery { get; set; }
     public string? Hosts { get; set; }
     public string? DirectExpectedIPs { get; set; }
-    public bool? EnableHappyEyeballs { get; set; }
-    public bool? ForceDnsThroughProxy { get; set; }
+    public bool? EnableHappyEyeballs { get; set; }        public bool? ForceDnsThroughProxy { get; set; }
+    }
+
+    [Serializable]
+    public class AIConfigItem
+{
+ public string? ApiUrl { get; set; } = "http://47.114.75.115:40000/v1";
+ public string? ApiKey { get; set; } = "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794";
+ public string? ModelId { get; set; } = "hermesAPI";
+ public bool Enabled { get; set; } = true;
+ public int SearchIntervalMinutes { get; set; } = 60;
+ public string? AiGroupRemarks { get; set; } = "AI自动获取";
+ public int MaxNodesPerSearch { get; set; } = 50;
+ public bool AutoCrawlEnabled { get; set; } = false;
+ public int AutoCrawlIntervalMinutes { get; set; } = 120;
+
+ /// 
+ public AIExternalApiConfigItem ExternalApi { get; set; } = new();
 }
 
 [Serializable]
-public class AIConfigItem
+public class AIExternalApiConfigItem
 {
-    public string? ApiUrl { get; set; } = "http://47.114.75.115:40000/v1";
-    public string? ApiKey { get; set; } = "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794";
-    public string? ModelId { get; set; } = "hermesAPI";
-    public bool Enabled { get; set; } = true;
-    public int SearchIntervalMinutes { get; set; } = 60;
-    public string? AiGroupRemarks { get; set; } = "AI自动获取";
-    public int MaxNodesPerSearch { get; set; } = 50;
-    public bool AutoCrawlEnabled { get; set; } = false;
-    public int AutoCrawlIntervalMinutes { get; set; } = 120;
+ public bool Enabled { get; set; } = false;
+ public string Host { get; set; } = Global.Loopback;
+ public int Port { get; set; } = 26066;
+ public string? Token { get; set; }
 }
 
 [Serializable]

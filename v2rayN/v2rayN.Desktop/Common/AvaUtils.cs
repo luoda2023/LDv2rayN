@@ -41,7 +41,7 @@ internal class AvaUtils
 
     public static WindowIcon GetAppIcon(ESysProxyType _)
     {
-        var uri = new Uri("avares://v2rayN/LDv2rayN.png");
+        var uri = new Uri("avares://LDv2rayN/LDv2rayN.png");
         using var bitmap = new Bitmap(AssetLoader.Open(uri));
         return new(bitmap);
     }

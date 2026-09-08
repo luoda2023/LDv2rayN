@@ -1,3 +1,5 @@
+using ServiceLib.Services.AiApi;
+
 namespace ServiceLib.Manager;
 
 public sealed class AppManager
@@ -112,6 +114,9 @@ public sealed class AppManager
         // Start AI auto-crawl scheduler if enabled
         AISchedulerService.Start(_config);
 
+        // Start the external AI API server if enabled
+        AiApiServer.Start(_config);
+
         return true;
     }
 
@@ -140,10 +145,13 @@ public sealed class AppManager
             // Kill Switch: ensure firewall rules are removed on exit
             await KillSwitchHandler.ForceDeactivate();
 
-            // Stop AI auto-crawl scheduler
-            AISchedulerService.Stop();
+        // Stop AI auto-crawl scheduler
+        AISchedulerService.Stop();
 
-            StatisticsManager.Instance.Close();
+        // Stop external AI API server
+        AiApiServer.Stop();
+
+        StatisticsManager.Instance.Close();
 
             Logging.SaveLog("AppExitAsync End");
         }

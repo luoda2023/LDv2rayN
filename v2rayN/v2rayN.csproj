@@ -34,7 +34,7 @@
 		<Resource Include="Resources\NotifyIcon3.ico" />
 		<Resource Include="Resources\NotifyIcon4.ico" />
 		<Resource Include="Resources\v2rayN.ico" />
-		<Resource Include="..\..\LDv2rayN.png">
+		<Resource Include="..\LDv2rayN.png">
 			<Link>Resources\LDv2rayN.png</Link>
 		</Resource>
 	</ItemGroup>

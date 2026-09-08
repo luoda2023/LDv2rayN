@@ -11,7 +11,7 @@
                 <materialDesign:BundledTheme
                     BaseTheme="Dark"
                     PrimaryColor="Grey"
-                    SecondaryColor="BlueGrey" />
+                    SecondaryColor="DeepPurple" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <system:Double x:Key="MenuItemHeight">32</system:Double>

@@ -16,14 +16,22 @@ public class AIFetchService
     {
         _config = config;
         _updateFunc = updateFunc;
-    }    // User-specified URLs to check daily
-    private static readonly string[] UserSpecifiedUrls =
-    {
-        "https://github.com/0xRadikal/Free-v2ray-Configs",
-        "https://github.com/cbusifabcap/daily_free_vpn",
-        "https://github.com/kanaltvyt-dev/FreeForYoung",
-        "https://github.com/hello-world-1989/cn-news",
-    };
+    }        // User-specified URLs to check daily
+        private static readonly string[] UserSpecifiedUrls =
+        {
+            "https://github.com/0xRadikal/Free-v2ray-Configs",
+            "https://github.com/cbusifabcap/daily_free_vpn",
+            "https://github.com/kanaltvyt-dev/FreeForYoung",
+            "https://github.com/hello-world-1989/cn-news",
+            "https://github.com/Pawdroid/Free-servers",
+            "https://github.com/free-nodes/v2rayfree",
+            "https://github.com/hwanz/SSR-V2ray-Trojan-vpn",
+            "https://topvpnlist.github.io/",
+            "https://www.mibei77.com/",
+            "https://end-gfw.com/",
+            "https://www.vpngate.net/cn/",
+            "https://www.youtube.com/hashtag/%E5%85%8D%E8%B4%B9%E8%8A%82%E7%82%B9",
+        };
 
     public async Task<int> FetchAndAddNodesAsync()
     {
@@ -234,30 +242,36 @@ public class AIFetchService
 
         await Task.WhenAll(tasks);
         return nodes;
-    }
+    }        private async Task<List<string>> FetchNodesFromGitHubRepo(string repoUrl)
+        {
+            var nodes = new List<string>();
 
-    private async Task<List<string>> FetchNodesFromGitHubRepo(string repoUrl)
-    {
-        var nodes = new List<string>();
+            // Non-GitHub URL (plain website): fall through to a generic content fetch.
+            if (!repoUrl.Contains("github.com/", StringComparison.OrdinalIgnoreCase))
+            {
+                var fetched = await FetchWithMirrorFast(repoUrl);
+                return fetched ?? new List<string>();
+            }
+            var path = repoUrl.Replace("https://github.com/", "").TrimEnd('/');
+            var parts = path.Split('/');
+            if (parts.Length < 2) return nodes;
 
-        // Extract owner/repo from URL
-        if (!repoUrl.Contains("github.com/")) return nodes;
-        var path = repoUrl.Replace("https://github.com/", "").TrimEnd('/');
-        var parts = path.Split('/');
-        if (parts.Length < 2) return nodes;
-
-        var owner = parts[0];
-        var repo = parts[1];
-        var repoKey = $"{owner}/{repo}";
+            var owner = parts[0];
+            var repo = parts[1];
+            var repoKey = $"{owner}/{repo}";
 
         // Repo-specific file paths (based on actual repo structure analysis)
         var paths = GetRepoSpecificPaths(repoKey);
+
+        // raw.githubusercontent.com does not accept "HEAD" as a ref segment (it
+        // returns 404 for every file); these repos' default branch is "main".
+        var branch = "main";
 
         foreach (var p in paths)
         {
             try
             {
-                var rawUrl = $"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}";
+                var rawUrl = $"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{p}";
                 var fetched = await FetchWithMirrorFast(rawUrl);
                 if (fetched != null && fetched.Count > 0)
                 {
@@ -279,35 +293,26 @@ public class AIFetchService
     {
         return repoKey switch
         {
-            // 0xRadikal: has Countries/*.txt and all/configs.txt
+            // 0xRadikal: aggregate file holds every node; fast/light are subsets
             "0xRadikal/Free-v2ray-Configs" => new List<string>
             {
                 "all/configs.txt",
-                "Countries/USA.txt",
-                "Countries/Germany.txt",
-                "Countries/UK.txt",
-                "Countries/Japan.txt",
-                "Countries/Singapore.txt",
-                "Countries/Hong Kong.txt",
-                "Countries/Taiwan.txt",
-                "Countries/Korea.txt",
-                "Countries/France.txt",
-                "Countries/Netherlands.txt",
-                "Countries/Canada.txt",
-                "Countries/Australia.txt",
+                "fast/configs.txt",
+                "light/configs.txt",
             },
-            // cbusifabcap: has Z.txt
+            // cbusifabcap: Z.txt is the full list; sub/*.yml are Clash/singbox subs
             "cbusifabcap/daily_free_vpn" => new List<string>
             {
                 "Z.txt",
-                "sub/sub_merge.txt",
-                "sub/sub.txt",
+                "sub/sub.yml",
+                "sub/URI.yml",
             },
             // kanaltvyt: has singapore.txt and output/*.txt
             "kanaltvyt-dev/FreeForYoung" => new List<string>
             {
                 "singapore.txt",
                 "output/singapore.txt",
+                "output/subscription.txt",
             },
             // hello-world-1989: has end-gfw-together-ss
             "hello-world-1989/cn-news" => new List<string>
@@ -443,14 +448,17 @@ public class AIFetchService
         }
 
         return removed;
-    }
-
-    private async Task<bool> TestAddressFast(string address, int port)
-    {
-        try
+    }        private async Task<bool> TestAddressFast(string address, int port)
         {
-            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1")) return true;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try
+            {
+                if (address.IsNullOrEmpty() || port <= 0) return false;
+                if (address.Equals("127.0.0.1", StringComparison.Ordinal) ||
+                    address.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             using var client = new TcpClient();
             await client.ConnectAsync(address, port, cts.Token);
             return client.Connected;
@@ -751,7 +759,7 @@ public class AIFetchService
         {
             foreach (var p in CandidatePaths.Take(8)) // Reduced from 14 to 8 for speed
             {
-                probeUrls.Add($"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}");
+                probeUrls.Add($"https://raw.githubusercontent.com/{owner}/{repo}/main/{p}");
             }
         }
         probeUrls.AddRange(FallbackRaw);
@@ -972,7 +980,14 @@ public class AIFetchService
             var address = profile.Address;
             var port = profile.Port;
 
-            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
+            // An empty address or non-positive port is an invalid link, not a pass.
+            // Loopback (127.0.0.1 / localhost) is accepted only as a local test target.
+            if (address.IsNullOrEmpty() || port <= 0)
+            {
+                return false;
+            }
+            if (address.Equals("127.0.0.1", StringComparison.Ordinal) ||
+                address.Equals("localhost", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -1000,16 +1015,10 @@ public class AIFetchService
             }
             catch
             {
-                // If direct TCP fails, try DNS resolution as last resort
-                try
-                {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
-                    return hostEntry.AddressList.Length > 0;
-                }
-                catch
-                {
-                    return false;
-                }
+                // A DNS resolution success does NOT mean the node is usable —
+                // the server may exist but reject the protocol (TLS handshake
+                // fails, wrong port, etc.). Only a real TCP connect counts.
+                return false;
             }
         }
         catch
@@ -1077,7 +1086,14 @@ public class AIFetchService
             var address = profile.Address;
             var port = profile.Port;
 
-            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
+            // Never accept a node with no real endpoint: an empty address is an
+            // invalid link, not a pass. Loopback is the only auto-accept case
+            // (user-configured local nodes).
+            if (address.IsNullOrEmpty() || port <= 0)
+            {
+                return false;
+            }
+            if (address.Equals("127.0.0.1") || address.Equals("localhost"))
             {
                 return true;
             }
@@ -1094,7 +1110,8 @@ public class AIFetchService
             }
             catch { }
 
-            // Fast TCP test: 3 second timeout (fallback)
+            // Real TCP connect test: 3 second timeout. A DNS resolution success
+            // does NOT mean the node is usable, so no DNS fallback here.
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             try
             {
@@ -1104,16 +1121,7 @@ public class AIFetchService
             }
             catch
             {
-                // Try DNS as last resort
-                try
-                {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
-                    return hostEntry.AddressList.Length > 0;
-                }
-                catch
-                {
-                    return false;
-                }
+                return false;
             }
         }
         catch

@@ -70,7 +70,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkdomainStrategy_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbdomainStrategy}" />
-                    <TextBlock Text="🔗" FontSize="16" VerticalAlignment="Center" />
+                    <materialDesign:PackIcon Kind="Link" />
                 </Hyperlink>
             </TextBlock>
             <ComboBox
@@ -89,7 +89,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkdomainStrategy4Singbox_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbdomainStrategy4Singbox}" />
-                    <TextBlock Text="🔗" FontSize="16" VerticalAlignment="Center" />
+                    <materialDesign:PackIcon Kind="Link" />
                 </Hyperlink>
             </TextBlock>
             <ComboBox

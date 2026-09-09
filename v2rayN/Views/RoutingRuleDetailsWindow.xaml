@@ -169,7 +169,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkRuleobjectDoc_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbRuleobjectDoc}" />
-                    <TextBlock Text="🔗" FontSize="16" VerticalAlignment="Center" />
+                    <materialDesign:PackIcon Kind="Link" />
                 </Hyperlink>
             </TextBlock>
 

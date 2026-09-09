@@ -63,7 +63,7 @@
                             Style="{StaticResource ToolbarTextBlock}">
                             <Hyperlink Click="linkFullConfigTemplateDoc_Click">
                                 <TextBlock Text="{x:Static resx:ResUI.TbRayFullConfigTemplateDesc}" />
-                                <TextBlock Text="🔗" FontSize="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="Link" />
                             </Hyperlink>
                         </TextBlock>
 
@@ -164,7 +164,7 @@
                             Style="{StaticResource ToolbarTextBlock}">
                             <Hyperlink Click="linkFullConfigTemplateDoc_Click">
                                 <TextBlock Text="{x:Static resx:ResUI.TbSBFullConfigTemplateDesc}" />
-                                <TextBlock Text="🔗" FontSize="16" VerticalAlignment="Center" />
+                                <materialDesign:PackIcon Kind="Link" />
                             </Hyperlink>
                         </TextBlock>
 

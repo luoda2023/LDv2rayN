@@ -442,24 +442,29 @@ public partial class MainWindow
     /// </summary>
     private void ToggleAiChatPanel()
     {
-        System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} entered, window={( _aiChatWindow == null ? "null" : (_aiChatWindow.IsVisible ? "visible" : "hidden"))}\n");
+        var logPath = @"D:\LUODA\LDv2rayN\ai_toggle_debug.log";
+        System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} Toggle entered, window={( _aiChatWindow == null ? "null" : (_aiChatWindow.IsVisible ? "visible" : "hidden"))}\n");
         try
         {
             if (_aiChatWindow is { IsVisible: true })
             {
+                System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} hiding\n");
                 _aiChatWindow.Hide();
                 return;
             }
 
             if (_aiChatWindow == null)
             {
+                System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} creating AIChatWindow...\n");
                 try
                 {
                     _aiChatWindow = new AIChatWindow { Owner = this };
                     _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
+                    System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} created OK\n");
                 }
                 catch (Exception ex)
                 {
+                    System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} CREATE FAILED: {ex.Message}\n");
                     Logging.SaveLog($"AIChatWindow creation failed: {ex}");
                     MessageBox.Show(
                         $"AI 对话框创建失败：{ex.Message}",
@@ -468,19 +473,19 @@ public partial class MainWindow
                 }
             }
 
-            // Re-anchor to the bottom-right of the main window every time.
             double anchorRight = Left + Width - _aiChatWindow.Width - 16;
             double anchorBottom = Top + Height - _aiChatWindow.Height - 16;
             _aiChatWindow.Left = Math.Max(anchorRight, 0);
             _aiChatWindow.Top = Math.Max(anchorBottom, 0);
+            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} pos=({_aiChatWindow.Left},{_aiChatWindow.Top})\n");
 
             _aiChatWindow.Show();
             _aiChatWindow.Activate();
-            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} shown ok, visible={_aiChatWindow.IsVisible}\n");
+            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} shown ok, visible={_aiChatWindow.IsVisible}\n");
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} EXCEPTION: {ex}\n");
+            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} EXCEPTION: {ex}\n");
         }
     }
 

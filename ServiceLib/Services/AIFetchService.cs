@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using ServiceLib.Enums;
 
 namespace ServiceLib.Services;
 
@@ -40,12 +41,23 @@ public class AIFetchService
             // Step 1: Fetch from user-specified URLs + GitHub search
             var allNodes = new List<string>();
 
-            // First: fetch from user-specified URLs
+            // First: try crawl4ai server if available
+            var crawl4aiNodes = await FetchFromCrawl4AI();
+            if (crawl4aiNodes.Count > 0)
+            {
+                allNodes.AddRange(crawl4aiNodes);
+                await _updateFunc(false, $"✅ 从crawl4ai获取到 {crawl4aiNodes.Count} 个节点");
+            }
+
+            // Then: fetch from user-specified URLs
             await _updateFunc(false, "📥 正在从指定链接获取节点...");
             var specifiedNodes = await FetchFromSpecifiedUrls();
             if (specifiedNodes.Count > 0)
             {
-                allNodes.AddRange(specifiedNodes);
+                foreach (var n in specifiedNodes)
+                {
+                    if (!allNodes.Contains(n)) allNodes.Add(n);
+                }
                 await _updateFunc(false, $"✅ 从指定链接获取到 {specifiedNodes.Count} 个节点");
             }
 
@@ -134,6 +146,59 @@ public class AIFetchService
         }
     }
 
+    /// <summary>
+    /// Try to fetch nodes from crawl4ai server if it's running.
+    /// crawl4ai is a Python-based web crawler that can better handle dynamic pages.
+    /// </summary>
+    private async Task<List<string>> FetchFromCrawl4AI()
+    {
+        var nodes = new List<string>();
+
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+            // Check if crawl4ai server is running
+            var healthResp = await httpClient.GetAsync("http://127.0.0.1:18888/health");
+            if (!healthResp.IsSuccessStatusCode)
+            {
+                return nodes; // Server not running
+            }
+
+            Logging.SaveLog($"{_tag}: crawl4ai server detected, using it for crawling");
+
+            // Fetch all repos via crawl4ai
+            var response = await httpClient.GetStringAsync("http://127.0.0.1:18888/crawl-all");
+            var doc = JsonDocument.Parse(response);
+
+            if (doc.RootElement.TryGetProperty("nodes", out var nodesArray))
+            {
+                foreach (var node in nodesArray.EnumerateArray())
+                {
+                    var nodeStr = node.GetString();
+                    if (!string.IsNullOrEmpty(nodeStr))
+                    {
+                        nodes.Add(nodeStr);
+                    }
+                }
+            }
+
+            Logging.SaveLog($"{_tag}: crawl4ai returned {nodes.Count} nodes");
+        }
+        catch (HttpRequestException)
+        {
+            // crawl4ai server not running, use fallback
+            Logging.SaveLog($"{_tag}: crawl4ai server not running, using built-in crawler");
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog($"{_tag}: crawl4ai error: {ex.Message}");
+        }
+
+        return nodes;
+    }
+
     private async Task<List<string>> FetchFromSpecifiedUrls()
     {
         var nodes = new List<string>();
@@ -183,21 +248,10 @@ public class AIFetchService
 
         var owner = parts[0];
         var repo = parts[1];
+        var repoKey = $"{owner}/{repo}";
 
-        // Try common file paths
-        string[] paths =
-        {
-            "sub/sub_merge.txt",
-            "sub/sub.txt",
-            "sub.txt",
-            "subscribe",
-            "sub",
-            "v2ray",
-            "nodes.txt",
-            "list.txt",
-            "sub/base64.txt",
-            "subscribe.txt",
-        };
+        // Repo-specific file paths (based on actual repo structure analysis)
+        var paths = GetRepoSpecificPaths(repoKey);
 
         foreach (var p in paths)
         {
@@ -208,7 +262,7 @@ public class AIFetchService
                 if (fetched != null && fetched.Count > 0)
                 {
                     nodes.AddRange(fetched);
-                    if (nodes.Count >= 100) break; // Stop after enough
+                    if (nodes.Count >= 200) break; // Stop after enough
                 }
             }
             catch { }
@@ -218,8 +272,72 @@ public class AIFetchService
     }
 
     /// <summary>
+    /// Returns repo-specific file paths to check for nodes.
+    /// Based on actual analysis of each repo's structure.
+    /// </summary>
+    private static List<string> GetRepoSpecificPaths(string repoKey)
+    {
+        return repoKey switch
+        {
+            // 0xRadikal: has Countries/*.txt and all/configs.txt
+            "0xRadikal/Free-v2ray-Configs" => new List<string>
+            {
+                "all/configs.txt",
+                "Countries/USA.txt",
+                "Countries/Germany.txt",
+                "Countries/UK.txt",
+                "Countries/Japan.txt",
+                "Countries/Singapore.txt",
+                "Countries/Hong Kong.txt",
+                "Countries/Taiwan.txt",
+                "Countries/Korea.txt",
+                "Countries/France.txt",
+                "Countries/Netherlands.txt",
+                "Countries/Canada.txt",
+                "Countries/Australia.txt",
+            },
+            // cbusifabcap: has Z.txt
+            "cbusifabcap/daily_free_vpn" => new List<string>
+            {
+                "Z.txt",
+                "sub/sub_merge.txt",
+                "sub/sub.txt",
+            },
+            // kanaltvyt: has singapore.txt and output/*.txt
+            "kanaltvyt-dev/FreeForYoung" => new List<string>
+            {
+                "singapore.txt",
+                "output/singapore.txt",
+            },
+            // hello-world-1989: has end-gfw-together-ss
+            "hello-world-1989/cn-news" => new List<string>
+            {
+                "end-gfw-together-ss",
+                "server.txt",
+            },
+            // Default: try common paths
+            _ => new List<string>
+            {
+                "sub/sub_merge.txt",
+                "sub/sub.txt",
+                "sub.txt",
+                "subscribe",
+                "sub",
+                "v2ray",
+                "nodes.txt",
+                "list.txt",
+                "sub/base64.txt",
+                "subscribe.txt",
+                "node",
+                "free.txt",
+            },
+        };
+    }
+
+    /// <summary>
     /// Clean invalid nodes in AI-managed groups. Only removes nodes from groups
-    /// that were created by AI (url contains 'ai-auto').
+    /// that were created by AI (identified by specific markers).
+    /// User-created groups are NEVER touched.
     /// </summary>
     public async Task<int> CleanInvalidNodesInAIGroups()
     {
@@ -230,11 +348,8 @@ public class AIFetchService
             var subItems = await AppManager.Instance.SubItems();
             if (subItems == null) return 0;
 
-            // Only clean AI-created groups
-            var aiGroups = subItems.Where(s =>
-                s.Url.Contains("ai-auto", StringComparison.OrdinalIgnoreCase) ||
-                s.Remarks.Contains("AI", StringComparison.OrdinalIgnoreCase) ||
-                s.Remarks.Contains("自动", StringComparison.OrdinalIgnoreCase)).ToList();
+            // Only clean AI-created groups (identified by multiple markers)
+            var aiGroups = subItems.Where(s => IsAICreatedGroup(s)).ToList();
 
             foreach (var group in aiGroups)
             {
@@ -248,6 +363,30 @@ public class AIFetchService
         }
 
         return totalRemoved;
+    }
+
+    /// <summary>
+    /// Check if a subscription group was created by AI.
+    /// Uses multiple markers to ensure we only touch AI-created groups.
+    /// </summary>
+    private static bool IsAICreatedGroup(SubItem sub)
+    {
+        // Check URL marker (AI groups have 'ai-auto' in URL)
+        if (sub.Url.Contains("ai-auto", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Check Remarks marker (AI groups have specific names)
+        var remarks = sub.Remarks;
+        if (remarks.Contains("AI", StringComparison.OrdinalIgnoreCase) ||
+            remarks.Contains("自动", StringComparison.OrdinalIgnoreCase) ||
+            remarks.Contains("auto", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Check Memo marker (AI groups have specific memo)
+        if (sub.Memo?.Contains("由AI自动搜索", StringComparison.OrdinalIgnoreCase) == true)
+            return true;
+
+        return false;
     }
 
     private async Task<int> CleanInvalidNodesInGroup(string subId)
@@ -838,8 +977,21 @@ public class AIFetchService
                 return true;
             }
 
-            // TCP connect test with DNS fallback
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            // Method 1: Try through local SOCKS5 proxy (official v2rayN approach)
+            // This tests if the node actually works for traffic forwarding
+            try
+            {
+                var socksPort = AppManager.Instance.GetLocalPort(EInboundProtocol.socks);
+                if (socksPort > 0)
+                {
+                    var result = await TestThroughSocksProxy(address, port, socksPort);
+                    if (result) return true;
+                }
+            }
+            catch { }
+
+            // Method 2: Direct TCP test (fallback)
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             try
             {
                 using var client = new TcpClient();
@@ -848,6 +1000,7 @@ public class AIFetchService
             }
             catch
             {
+                // If direct TCP fails, try DNS resolution as last resort
                 try
                 {
                     var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
@@ -858,6 +1011,52 @@ public class AIFetchService
                     return false;
                 }
             }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Test node through local SOCKS5 proxy (official v2rayN approach).
+    /// This verifies the node can actually forward traffic.
+    /// </summary>
+    private async Task<bool> TestThroughSocksProxy(string targetAddress, int targetPort, int socksPort)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var client = new TcpClient();
+            await client.ConnectAsync("127.0.0.1", socksPort, cts.Token);
+
+            // SOCKS5 handshake
+            var stream = client.GetStream();
+            
+            // Send greeting (SOCKS5, 1 auth method)
+            await stream.WriteAsync(new byte[] { 0x05, 0x01, 0x00 }, cts.Token);
+            var response = new byte[2];
+            await stream.ReadAsync(response, cts.Token);
+            if (response[0] != 0x05) return false;
+
+            // Send connect request
+            var addrBytes = System.Text.Encoding.ASCII.GetBytes(targetAddress);
+            var request = new byte[7 + addrBytes.Length];
+            request[0] = 0x05; // SOCKS5
+            request[1] = 0x01; // CONNECT
+            request[2] = 0x00; // Reserved
+            request[3] = 0x03; // Domain name
+            request[4] = (byte)addrBytes.Length;
+            Array.Copy(addrBytes, 0, request, 5, addrBytes.Length);
+            request[^2] = (byte)(targetPort >> 8);
+            request[^1] = (byte)(targetPort & 0xFF);
+
+            await stream.WriteAsync(request, cts.Token);
+            var connectResponse = new byte[10];
+            await stream.ReadAsync(connectResponse, cts.Token);
+
+            // Check if connection succeeded (response[1] == 0x00)
+            return connectResponse[1] == 0x00;
         }
         catch
         {
@@ -883,8 +1082,20 @@ public class AIFetchService
                 return true;
             }
 
-            // Fast TCP test: 2 second timeout, no DNS fallback
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            // Try through local SOCKS5 proxy first (official v2rayN approach)
+            try
+            {
+                var socksPort = AppManager.Instance.GetLocalPort(EInboundProtocol.socks);
+                if (socksPort > 0)
+                {
+                    var result = await TestThroughSocksProxy(address, port, socksPort);
+                    if (result) return true;
+                }
+            }
+            catch { }
+
+            // Fast TCP test: 3 second timeout (fallback)
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
             try
             {
                 using var client = new TcpClient();
@@ -893,7 +1104,16 @@ public class AIFetchService
             }
             catch
             {
-                return false;
+                // Try DNS as last resort
+                try
+                {
+                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
+                    return hostEntry.AddressList.Length > 0;
+                }
+                catch
+                {
+                    return false;
+                }
             }
         }
         catch

@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Diagnostics;
+using System.Windows.Threading;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MaterialDesignThemes.Wpf;
@@ -8,9 +10,8 @@ using v2rayN.Manager;
 namespace v2rayN.Views;
 
 public partial class MainWindow
-{
-    private static Config _config;
-    private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
+{        private static Config _config;
+        private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
     private BackupAndRestoreView? _backupAndRestoreView;
     private AIChatWindow? _aiChatWindow;
     private System.Windows.Threading.DispatcherTimer? _aiRingTimer;
@@ -195,7 +196,7 @@ public partial class MainWindow
                 {
                     try
                     {
-                        ProcUtils.ProcessStart("https://download.dicad.cn");
+                        ProcUtils.ProcessStart(Global.DownloadUrl);
                     }
                     catch
                     {
@@ -363,20 +364,53 @@ public partial class MainWindow
                 AppEvents.SysProxyChangeRequested.Publish((ESysProxyType)((int)e - 1));
                 break;
         }
-    }
+    }        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            // Normally, closing hides the window to the tray. If the user is doing a
+            // real exit (via ShutdownNow), let the close proceed so WPF can actually shut down.
+            if (ExitManager.ForceExit)
+            {
+                e.Cancel = false;
+                return;
+            }
+            e.Cancel = true;
+            ShowHideWindow(false);
+        }        private async void Current_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+        {
+            Logging.SaveLog("Current_SessionEnding");
+            ShutdownNow();
+        }
 
-    private void MainWindow_Closing(object? sender, CancelEventArgs e)
-    {
-        e.Cancel = true;
-        ShowHideWindow(false);
-    }
+        /// <summary>
+        /// Unified exit path with a 5s watchdog that force-kills the process if the
+        /// cleanup chain hangs for any reason.
+        /// </summary>
+        private async void ShutdownNow()
+        {
+            // Force-exit flag: without it, MainWindow_Closing would cancel the
+            // Application.Shutdown() call and the process would stay alive forever.
+            ExitManager.ForceExit = true;
 
-    private async void Current_SessionEnding(object sender, SessionEndingCancelEventArgs e)
-    {
-        Logging.SaveLog("Current_SessionEnding");
-        StorageUI();
-        await AppManager.Instance.AppExitAsync(false);
-    }
+        // StorageUI saves window position/size synchronously before handing off
+        // the long-running cleanup to a background task.
+        try { StorageUI(); } catch { }
+
+        // 优雅退出跑在独立线程，不被 UI 线程阻塞。如果 5 秒内还没完成，
+        // 让应用继续挂着但不再杀进程；用户从任务管理器退出即可。
+        using var cts = new CancellationTokenSource();
+        var cleanup = Task.Run(async () =>
+        {
+            try { await AppManager.Instance.AppExitAsync(false); } catch { }
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try { Application.Current.Shutdown(); } catch { }
+            });
+        });
+        if (await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(5), cts.Token)) != cleanup)
+        {
+            Logging.SaveLog("MenuClose/SessionEnding: cleanup did not finish in 5s, leaving process alive");
+        }
+        }
 
     private void Shutdown(bool obj)
     {

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Threading;
 using v2rayN.Manager;
 
 namespace v2rayN.Views;
@@ -109,33 +110,23 @@ public partial class StatusBarView
             // 没有这个标志，Application.Current.Shutdown() 会被 e.Cancel = true 拦下，进程会永远残留。
             ExitManager.ForceExit = true;
 
-            // 5 秒看门狗：如果下面的清理链路 (ShutdownRequested -> Application.Current.Shutdown -> MainWindow Closing 拦截)
-            // 因任何原因卡住，则强制结束进程。这是最后防线。
-            var watchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-            watchdog.Tick += (_, _) =>
+        // 优雅退出跑在独立线程，不被 UI 线程阻塞。如果 5 秒内还没完成，
+        // 让应用继续挂着但不再杀进程；用户从任务管理器退出即可。
+        using var cts = new CancellationTokenSource();
+        var cleanup = Task.Run(async () =>
+        {
+            try { await AppManager.Instance.AppExitAsync(false); } catch { }
+            Application.Current.Dispatcher.Invoke(() =>
             {
-                try
-                {
-                    if (Process.GetCurrentProcess().HasExited) return;
-                    Process.GetCurrentProcess().Kill();
-                }
-                catch { }
-            };
-            watchdog.Start();
-
-            try
-            {
-                await AppManager.Instance.AppExitAsync(false);
-            }
-            catch { }
-
-            // 直接触发 WPF Shutdown，而不是靠 AppExitAsync 内部发 ShutdownRequested 事件走 MainWindow 的订阅。
-            // MainWindow_Closing 会 e.Cancel = true 拦截关窗（隐藏到托盘），Application.Current.Shutdown 会绕开它。
-            try { Application.Current.Shutdown(); } catch { }
-
-            watchdog.Stop();
+                try { Application.Current.Shutdown(); } catch { }
+            });
+        });
+        if (await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(5), cts.Token)) != cleanup)
+        {
+            Logging.SaveLog("tray exit: cleanup did not finish in 5s, leaving process alive");
         }
 
+}
     private void txtRunningInfoDisplay_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         ViewModel?.TestServerAvailability();

@@ -168,6 +168,36 @@ public partial class AIChatWindow : Window
         ScrollToEnd();
     }
 
+    private async void BtnSearchRepos_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.IsProcessing) return;
+        await _vm.SearchGitHubReposAsync();
+        ScrollToEnd();
+    }
+
+    private void BtnSelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var repo in _vm.GitHubRepos)
+        {
+            repo.IsSelected = true;
+        }
+    }
+
+    private void BtnDeselectAll_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var repo in _vm.GitHubRepos)
+        {
+            repo.IsSelected = false;
+        }
+    }
+
+    private async void BtnImportSelected_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.IsProcessing) return;
+        await _vm.ImportSelectedReposAsync();
+        ScrollToEnd();
+    }
+
     private void ScrollToEnd()
     {
         if (chatItems?.Items is null) return;

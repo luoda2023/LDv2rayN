@@ -19,11 +19,15 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
     [Reactive] public partial bool AutoTest { get; set; } = true;
     [Reactive] public partial bool AutoCrawlEnabled { get; set; }
     [Reactive] public partial int AutoCrawlIntervalMinutes { get; set; } = 120;
+    [Reactive] public partial bool IsRepoListVisible { get; set; }
     private Timer? _autoCrawlTimer;
     private CancellationTokenSource? _autoCrawlCts;
 
     /// <summary>Observable collection of chat messages for the UI</summary>
     public ObservableCollection<AIChatMessage> Messages { get; } = new();
+
+    /// <summary>Observable collection of GitHub repositories for user selection</summary>
+    public ObservableCollection<GitHubRepoItem> GitHubRepos { get; } = new();
 
     public AIChatViewModel()
     {
@@ -43,6 +47,8 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 📋 **批量导入** — 直接粘贴一批节点链接（每行一个），我会自动识别、逐个验证后导入到指定分组。支持Base64编码的订阅内容。
 
 🔍 **GitHub 自动搜索** — 点击「自动搜索」或输入 `搜索`，我会在 GitHub 上搜索最新免费节点仓库，下载订阅、解析节点、测活后把通过的导入分组。
+
+📦 **选择性导入** — 点击「搜索仓库」按钮，我会搜索GitHub上的免费节点仓库并列出清单，你可以勾选要导入的仓库，然后点击「导入所选」。
 
 🗣️ **自由问答** — 任何与VPN/代理/网络相关的问题都可以直接问我（由 hermesAPI 回答）。
 
@@ -87,7 +93,7 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             if (IsProcessing) return;
             try
             {
-                AddMessage(AIChatRole.System, $"⏰ 定时触发：开始自动搜索免费节点...");
+                AddMessage(AIChatRole.System, "⏰ 定时触发：开始自动搜索免费节点...");
                 await AutoSearchAsync();
             }
             catch (Exception ex)
@@ -105,6 +111,372 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         _autoCrawlTimer = null;
     }
 
+    /// <summary>Search GitHub for free node repositories and show selection list</summary>
+    public async Task SearchGitHubReposAsync()
+    {
+        if (IsProcessing)
+        {
+            return;
+        }
+
+        IsProcessing = true;
+        GitHubRepos.Clear();
+        IsRepoListVisible = true;
+
+        try
+        {
+            AddMessage(AIChatRole.User, "🔍 搜索GitHub免费节点仓库");
+            AddMessage(AIChatRole.AI, "正在搜索GitHub上的免费节点仓库...\n\n请稍候，我会列出找到的仓库供你选择。");
+
+            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+
+            // Search queries for free VPN nodes
+            string[] searchQueries =
+            {
+                "free v2ray nodes",
+                "free vless",
+                "free clash subscription",
+                "free trojan",
+                "free hysteria2",
+                "v2ray free subscribe",
+                "free vpn subscription github",
+            };
+
+            using var searchClient = new HttpClient();
+            searchClient.Timeout = TimeSpan.FromSeconds(10);
+            searchClient.DefaultRequestHeaders.UserAgent.ParseAdd("LDv2rayN/1.0 (github-search)");
+            searchClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+
+            var repos = new List<(string Owner, string Repo, string Description, int Stars)>();
+            var repoLock = new object();
+
+            // Parallel GitHub repo search
+            using var searchSemaphore = new SemaphoreSlim(3);
+            var searchTasks = searchQueries.Select(async query =>
+            {
+                await searchSemaphore.WaitAsync();
+                try
+                {
+                    if (repos.Count >= 20) return;
+                    var url = $"https://api.github.com/search/repositories?q={Uri.EscapeDataString(query)}&sort=updated&order=desc&per_page=5";
+                    var resp = await searchClient.GetAsync(url);
+                    if (!resp.IsSuccessStatusCode) return;
+                    var json = await resp.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(json);
+                    if (!doc.RootElement.TryGetProperty("items", out var items)) return;
+                    foreach (var item in items.EnumerateArray())
+                    {
+                        if (!item.TryGetProperty("full_name", out var fn)) continue;
+                        var full = fn.GetString();
+                        if (full is null) continue;
+                        var parts = full.Split('/');
+                        if (parts.Length != 2) continue;
+
+                        var description = item.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "";
+                        var stars = item.TryGetProperty("stargazers_count", out var st) ? st.GetInt32() : 0;
+
+                        var pair = (parts[0], parts[1], description, stars);
+                        lock (repoLock)
+                        {
+                            if (!repos.Contains(pair) && repos.Count < 20)
+                                repos.Add(pair);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.SaveLog($"{_tag}: repo search '{query}' failed: {ex.Message}");
+                }
+                finally
+                {
+                    searchSemaphore.Release();
+                }
+            });
+            await Task.WhenAll(searchTasks);
+
+            // Add to observable collection
+            foreach (var (owner, repo, description, stars) in repos)
+            {
+                GitHubRepos.Add(new GitHubRepoItem
+                {
+                    Owner = owner,
+                    Repo = repo,
+                    Description = description.Length > 80 ? description[..80] + "..." : description,
+                    Stars = stars,
+                    IsSelected = true, // Default selected
+                    Url = $"https://github.com/{owner}/{repo}"
+                });
+            }
+
+            if (GitHubRepos.Count == 0)
+            {
+                AddMessage(AIChatRole.AI, "⚠️ 未找到免费节点仓库。\n\n可能原因：\n- GitHub API限制\n- 网络连接问题\n\n建议稍后重试。");
+                IsRepoListVisible = false;
+            }
+            else
+            {
+                AddMessage(AIChatRole.AI, $"✅ 找到 **{GitHubRepos.Count}** 个仓库\n\n请在下方列表中勾选要导入的仓库，然后点击「导入所选」按钮。");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            AddMessage(AIChatRole.AI, $"❌ 搜索过程中出现错误：\n\n`{ex.Message}`");
+            IsRepoListVisible = false;
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    /// <summary>Import nodes from selected GitHub repositories</summary>
+    public async Task ImportSelectedReposAsync()
+    {
+        if (IsProcessing)
+        {
+            return;
+        }
+
+        var selectedRepos = GitHubRepos.Where(r => r.IsSelected).ToList();
+        if (selectedRepos.Count == 0)
+        {
+            AddMessage(AIChatRole.AI, "⚠️ 请先勾选要导入的仓库。");
+            return;
+        }
+
+        IsProcessing = true;
+        IsRepoListVisible = false;
+
+        try
+        {
+            AddMessage(AIChatRole.User, $"📦 导入 {selectedRepos.Count} 个选中仓库的节点");
+            AddMessage(AIChatRole.AI, $"开始从 {selectedRepos.Count} 个仓库获取节点...\n\n这可能需要几分钟时间，请耐心等待。");
+
+            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+            if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+            {
+                AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
+                return;
+            }
+
+            // Override settings
+            aiConfig.AiGroupRemarks = TargetGroup;
+            aiConfig.MaxNodesPerSearch = MaxNodes;
+            _config.AIConfigItem = aiConfig;
+
+            var allNodes = new List<string>();
+            var fetchLock = new object();
+
+            // Parallel fetch from all selected repos
+            using var fetchSemaphore = new SemaphoreSlim(5);
+            var fetchTasks = selectedRepos.Select(async repo =>
+            {
+                await fetchSemaphore.WaitAsync();
+                try
+                {
+                    AddMessage(AIChatRole.AI, $"📥 正在从 {repo.Owner}/{repo.Repo} 获取节点...");
+
+                    var nodes = await FetchNodesFromGitHubRepo(repo.Owner, repo.Repo);
+                    if (nodes != null && nodes.Count > 0)
+                    {
+                        lock (fetchLock)
+                        {
+                            allNodes.AddRange(nodes);
+                        }
+                        AddMessage(AIChatRole.AI, $"✅ 从 {repo.Owner}/{repo.Repo} 获取到 {nodes.Count} 个节点");
+                    }
+                    else
+                    {
+                        AddMessage(AIChatRole.AI, $"⚠️ 从 {repo.Owner}/{repo.Repo} 未获取到节点");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logging.SaveLog($"{_tag}: fetch from {repo.Owner}/{repo.Repo} failed: {ex.Message}");
+                    AddMessage(AIChatRole.AI, $"❌ 从 {repo.Owner}/{repo.Repo} 获取失败：{ex.Message}");
+                }
+                finally
+                {
+                    fetchSemaphore.Release();
+                }
+            });
+            await Task.WhenAll(fetchTasks);
+
+            if (allNodes.Count == 0)
+            {
+                AddMessage(AIChatRole.AI, "⚠️ 未从任何仓库获取到节点。\n\n建议尝试其他仓库或稍后重试。");
+                return;
+            }
+
+            // Deduplicate
+            allNodes = allNodes.Distinct().ToList();
+            AddMessage(AIChatRole.AI, $"🔍 共获取到 **{allNodes.Count}** 个不重复节点，开始验证...");
+
+            // Test nodes concurrently
+            var validNodes = new List<string>();
+            var resultLock = new object();
+
+            using var testSemaphore = new SemaphoreSlim(20);
+            var testTasks = allNodes.Select(async nodeLink =>
+            {
+                await testSemaphore.WaitAsync();
+                try
+                {
+                    if (await TestNode(nodeLink))
+                    {
+                        lock (resultLock)
+                        {
+                            validNodes.Add(nodeLink);
+                        }
+                    }
+                }
+                finally
+                {
+                    testSemaphore.Release();
+                }
+            });
+            await Task.WhenAll(testTasks);
+
+            // Cap at MaxNodes
+            if (validNodes.Count > MaxNodes)
+            {
+                validNodes = validNodes.Take(MaxNodes).ToList();
+            }
+
+            if (validNodes.Count == 0)
+            {
+                AddMessage(AIChatRole.AI, "⚠️ 所有节点验证均失败。\n\n建议稍后重试或尝试其他仓库。");
+                return;
+            }
+
+            // Add valid nodes to target group
+            AddMessage(AIChatRole.AI, $"📦 正在将 {validNodes.Count} 个有效节点添加到「{TargetGroup}」分组...");
+
+            var subId = await GetOrCreateAISubscriptionGroup(TargetGroup);
+            var addedCount = await ConfigHandler.AddBatchServers(_config, string.Join("\n", validNodes), subId, true);
+
+            AddMessage(AIChatRole.AI, $"🎉 **完成！** 成功添加 **{addedCount}** 个有效节点到「**{TargetGroup}**」分组。\n\n你可以在主界面的分组列表中查看和使用这些节点。");
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            AddMessage(AIChatRole.AI, $"❌ 导入过程中出现错误：\n\n`{ex.Message}`");
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    /// <summary>Fetch nodes from a specific GitHub repository</summary>
+    private async Task<List<string>?> FetchNodesFromGitHubRepo(string owner, string repo)
+    {
+        var nodes = new List<string>();
+
+        // Common file paths that might contain nodes
+        string[] candidatePaths =
+        {
+            "sub/sub_merge.txt",
+            "sub/sub.txt",
+            "sub.txt",
+            "subscribe",
+            "sub",
+            "v2ray",
+            "nodes.txt",
+            "list.txt",
+            "sub/base64.txt",
+            "subscribe.txt",
+            "node",
+            "free.txt",
+            "Z.txt",
+            "singapore.txt",
+            "output/singapore.txt",
+            "end-gfw-together-ss",
+            "server.txt",
+            "all/configs.txt",
+            "Countries/USA.txt",
+            "Countries/Germany.txt",
+            "Countries/UK.txt",
+            "Countries/Japan.txt",
+            "Countries/Singapore.txt",
+            "Countries/Hong Kong.txt",
+        };
+
+        foreach (var p in candidatePaths)
+        {
+            try
+            {
+                var rawUrl = $"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}";
+                var fetched = await FetchWithMirrorFast(rawUrl);
+                if (fetched != null && fetched.Count > 0)
+                {
+                    nodes.AddRange(fetched);
+                    if (nodes.Count >= 100) break; // Stop after enough
+                }
+            }
+            catch { }
+        }
+
+        return nodes.Count > 0 ? nodes.Distinct().ToList() : null;
+    }
+
+    /// <summary>Fetch a raw.githubusercontent.com URL with mirror fallback</summary>
+    private async Task<List<string>?> FetchWithMirrorFast(string rawUrl)
+    {
+        string[] Mirrors =
+        {
+            "https://ghfast.top/",
+            "https://gh-proxy.com/",
+            "https://ghproxy.net/",
+        };
+
+        var attempts = new List<string> { rawUrl };
+        attempts.AddRange(Mirrors.Select(m => m + rawUrl));
+
+        foreach (var url in attempts)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(8);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                var resp = await client.GetAsync(url);
+                if (!resp.IsSuccessStatusCode)
+                    continue;
+                var text = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(text) || text.Length > 2_000_000)
+                    continue;
+
+                var nodes = ParseNodesFromText(text);
+                if (nodes.Count == 0 && text.Trim().Length > 40)
+                {
+                    try
+                    {
+                        var cleaned = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
+                        var decodedBytes = Convert.FromBase64String(cleaned);
+                        var decoded = System.Text.Encoding.UTF8.GetString(decodedBytes);
+                        nodes = ParseNodesFromText(decoded);
+                    }
+                    catch { }
+                }
+
+                if (nodes.Count > 0)
+                {
+                    return nodes;
+                }
+            }
+            catch
+            {
+                // Try next mirror
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Analyze a user-submitted URL: download → extract nodes → test → add to group</summary>
     public async Task AnalyzeUrlAsync()
     {
@@ -115,156 +487,156 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
         var raw = ChatInput.Trim();
         ChatInput = string.Empty;
-        IsProcessing = true; // Fast path 1: local command router — lets the user drive the app through chat
- // without any external LLM. If a command matches, execute and return.
- var cmd = TryMatchLocalCommand(raw);
- if (cmd is not null)
- {
- AddMessage(AIChatRole.User, $"💬 {raw}");
- try { await ExecuteLocalCommandAsync(cmd, raw); }
- finally { IsProcessing = false; }
- return;
- }
+        IsProcessing = true;
 
- var url = raw;
+        // Fast path 1: local command router
+        var cmd = TryMatchLocalCommand(raw);
+        if (cmd is not null)
+        {
+            AddMessage(AIChatRole.User, $"💬 {raw}");
+            try { await ExecuteLocalCommandAsync(cmd, raw); }
+            finally { IsProcessing = false; }
+            return;
+        }
 
- // Fast path 2: direct node link or HTTP URL — treat as link analysis
- var isDirectNodeLink = Array.Exists(NodeLinkPrefixes, p => raw.StartsWith(p, StringComparison.OrdinalIgnoreCase));
- var isHttpUrl = raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-     || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        var url = raw;
 
- // Fast path 3: free-form question — route to hermesAPI via OpenAI-compatible chat/completions
- if (!isDirectNodeLink && !isHttpUrl)
- {
- AddMessage(AIChatRole.User, $"💬 {raw}");
- var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
- if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
- {
- AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
- return;
- }
- var answer = await AskHermesAsync(aiConfig, raw);
- AddMessage(AIChatRole.AI, answer ?? "❌ AI 未返回任何内容。");
- return;
- }
+        // Fast path 2: direct node link or HTTP URL
+        var isDirectNodeLink = Array.Exists(NodeLinkPrefixes, p => raw.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        var isHttpUrl = raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
- AddMessage(AIChatRole.User, $"🔗 分析这个内容：{(url.Length > 200 ? url[..200] + "..." : url)}");
+        // Fast path 3: free-form question
+        if (!isDirectNodeLink && !isHttpUrl)
+        {
+            AddMessage(AIChatRole.User, $"💬 {raw}");
+            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+            if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+            {
+                AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
+                return;
+            }
+            var answer = await AskHermesAsync(aiConfig, raw);
+            AddMessage(AIChatRole.AI, answer ?? "❌ AI 未返回任何内容。");
+            return;
+        }
 
- try
- {
- var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
- if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
- {
- AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥，然后再使用AI助手。");
- return;
- }
+        AddMessage(AIChatRole.User, $"🔗 分析这个内容：{(url.Length > 200 ? url[..200] + "..." : url)}");
 
- // Fast path: user pasted direct node links (vmess://, vless://, etc.)
- var directNodes = ParseNodesFromText(url);
- // Also try Base64 decode — many subscriptions are Base64-encoded
- if (directNodes.Count == 0 && Utils.IsBase64String(url))
- {
- directNodes = ParseNodesFromText(Utils.Base64Decode(url));
- }
+        try
+        {
+            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+            if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+            {
+                AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥，然后再使用AI助手。");
+                return;
+            }
 
- List<string>? nodes;
- if (directNodes.Count > 0)
- {
- nodes = directNodes;
- AddMessage(AIChatRole.AI, $"📋 检测到 **{nodes.Count}** 个直接粘贴的节点链接，跳过下载步骤，直接验证...");
- }
- else
- {
- AddMessage(AIChatRole.AI, "🔍 正在下载并分析链接内容...");
+            // Fast path: user pasted direct node links
+            var directNodes = ParseNodesFromText(url);
+            // Also try Base64 decode
+            if (directNodes.Count == 0 && Utils.IsBase64String(url))
+            {
+                directNodes = ParseNodesFromText(Utils.Base64Decode(url));
+            }
 
- // Step 1: Download URL content
- var content = await DownloadUrlContent(url);
- if (content.IsNullOrEmpty())
- {
- AddMessage(AIChatRole.AI, $"❌ 无法下载链接内容，也无法识别为节点链接。\n\n请检查：\n- URL是否正确、网络是否正常\n- 或者直接粘贴节点链接（vmess://、vless://等）\n\n`{(url.Length > 100 ? url[..100] + "..." : url)}`");
- return;
- }
+            List<string>? nodes;
+            if (directNodes.Count > 0)
+            {
+                nodes = directNodes;
+                AddMessage(AIChatRole.AI, $"📋 检测到 **{nodes.Count}** 个直接粘贴的节点链接，跳过下载步骤，直接验证...");
+            }
+            else
+            {
+                AddMessage(AIChatRole.AI, "🔍 正在下载并分析链接内容...");
 
- AddMessage(AIChatRole.AI, $"📥 已下载内容（{content.Length:N0} 字符），正在让AI分析提取节点...");
+                // Step 1: Download URL content
+                var content = await DownloadUrlContent(url);
+                if (content.IsNullOrEmpty())
+                {
+                    AddMessage(AIChatRole.AI, $"❌ 无法下载链接内容，也无法识别为节点链接。\n\n请检查：\n- URL是否正确、网络是否正常\n- 或者直接粘贴节点链接（vmess://、vless://等）\n\n`{(url.Length > 100 ? url[..100] + "..." : url)}`");
+                    return;
+                }
 
- // Step 2: Use AI to extract nodes from content
- nodes = await ExtractNodesFromContent(aiConfig, content, url);
- }
+                AddMessage(AIChatRole.AI, $"📥 已下载内容（{content.Length:N0} 字符），正在让AI分析提取节点...");
+
+                // Step 2: Use AI to extract nodes from content
+                nodes = await ExtractNodesFromContent(aiConfig, content, url);
+            }
+
             if (nodes == null || nodes.Count == 0)
             {
                 AddMessage(AIChatRole.AI, $"⚠️ 未能从链接中提取到有效的VPN节点。\n\n可能原因：\n- 页面内容不包含节点链接\n- 节点格式无法识别\n- 需要登录才能查看内容\n\n**来源URL**: `{url}`");
                 return;
-            } // Cap the candidate pool — free sources like V2RayAggregator return
- // thousands of links; testing all of them would freeze the UI for
- // minutes. Test at most MaxNodes * 3 (min 30, max 150).
- var pool = nodes.Count > MaxNodes * 3
- ? nodes.Take(MaxNodes * 3).ToList()
- : nodes;
- if (pool.Count > 150) pool = pool.Take(150).ToList();
- AddMessage(AIChatRole.AI, $"🔍 从内容中提取到 **{nodes.Count}** 个候选节点，先验证前 **{pool.Count}** 个...");
+            }
 
- // Step 3: Test nodes concurrently (20 in flight, 3 s each) but keep
- // results in the original order for the UI list.
- var results = new List<AIChatNodeResult>();
- var validNodes = new List<string>();
- var resultLock = new object();
+            // Cap the candidate pool
+            var pool = nodes.Count > MaxNodes * 3
+                ? nodes.Take(MaxNodes * 3).ToList()
+                : nodes;
+            if (pool.Count > 150) pool = pool.Take(150).ToList();
+            AddMessage(AIChatRole.AI, $"🔍 从内容中提取到 **{nodes.Count}** 个候选节点，先验证前 **{pool.Count}** 个...");
 
- using var semaphore = new SemaphoreSlim(20);
- var testTasks = pool.Select(async nodeLink =>
- {
- var result = new AIChatNodeResult
- {
- NodeLink = nodeLink,
- DisplayName = ExtractNodeName(nodeLink),
- Protocol = ExtractProtocol(nodeLink),
- Address = ExtractAddress(nodeLink),
- Status = AIChatNodeStatus.Testing,
- StatusText = "正在验证..."
- };
- lock (resultLock)
- {
- results.Add(result);
- }
+            // Step 3: Test nodes concurrently
+            var results = new List<AIChatNodeResult>();
+            var validNodes = new List<string>();
+            var resultLock = new object();
 
- // 强制测试：未通过测试的节点一律不导入（失效链接绝不入组）。
- await semaphore.WaitAsync();
- bool passed;
- try
- {
- passed = await TestNode(nodeLink);
- }
- finally
- {
- semaphore.Release();
- }
- if (passed)
- {
- result.Status = AIChatNodeStatus.Passed;
- result.StatusText = "✅ 验证通过";
- lock (resultLock)
- {
- validNodes.Add(nodeLink);
- }
- }
- else
- {
- result.Status = AIChatNodeStatus.Failed;
- result.StatusText = "❌ 验证失败";
- }
- }).ToList();
- await Task.WhenAll(testTasks);
+            using var semaphore = new SemaphoreSlim(20);
+            var testTasks = pool.Select(async nodeLink =>
+            {
+                var result = new AIChatNodeResult
+                {
+                    NodeLink = nodeLink,
+                    DisplayName = ExtractNodeName(nodeLink),
+                    Protocol = ExtractProtocol(nodeLink),
+                    Address = ExtractAddress(nodeLink),
+                    Status = AIChatNodeStatus.Testing,
+                    StatusText = "正在验证..."
+                };
+                lock (resultLock)
+                {
+                    results.Add(result);
+                }
 
- // Restore original order with an O(n) index map (IndexOf on a
- // 4000-item list is O(n²) — the freeze the user hit).
- var orderMap = new Dictionary<string, int>(pool.Count);
- for (int i = 0; i < pool.Count; i++) orderMap[pool[i]] = i;
- results = results.OrderBy(r => orderMap.TryGetValue(r.NodeLink, out var oi) ? oi : int.MaxValue).ToList();
+                await semaphore.WaitAsync();
+                bool passed;
+                try
+                {
+                    passed = await TestNode(nodeLink);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
 
- // Cap at MaxNodes
- if (validNodes.Count > MaxNodes)
- {
- validNodes = validNodes.Take(MaxNodes).ToList();
- }
+                if (passed)
+                {
+                    result.Status = AIChatNodeStatus.Passed;
+                    result.StatusText = "✅ 验证通过";
+                    lock (resultLock)
+                    {
+                        validNodes.Add(nodeLink);
+                    }
+                }
+                else
+                {
+                    result.Status = AIChatNodeStatus.Failed;
+                    result.StatusText = "❌ 验证失败";
+                }
+            }).ToList();
+            await Task.WhenAll(testTasks);
+
+            // Restore original order
+            var orderMap = new Dictionary<string, int>(pool.Count);
+            for (int i = 0; i < pool.Count; i++) orderMap[pool[i]] = i;
+            results = results.OrderBy(r => orderMap.TryGetValue(r.NodeLink, out var oi) ? oi : int.MaxValue).ToList();
+
+            // Cap at MaxNodes
+            if (validNodes.Count > MaxNodes)
+            {
+                validNodes = validNodes.Take(MaxNodes).ToList();
+            }
 
             // Show node results
             AddNodeResultMessage(results, validNodes.Count);
@@ -358,20 +730,21 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             Content = content,
             Timestamp = DateTime.Now
         });
-    } private void AddNodeResultMessage(List<AIChatNodeResult> results, int passedCount)
- {
- var lastMsg = Messages.LastOrDefault();
- // Render at most 30 rows in the bubble — thousands of results would
- // freeze the chat window.
- var shown = results.Count > 30 ? results.Take(30).ToList() : results;
- Messages.Add(new AIChatMessage
- {
- Role = AIChatRole.System,
- Content = $"节点验证结果：{passedCount}/{results.Count} 通过" + (results.Count > 30 ? $"（显示前 30 条）" : ""),
- Timestamp = DateTime.Now,
- NodeResults = shown
- });
- }
+    }
+
+    private void AddNodeResultMessage(List<AIChatNodeResult> results, int passedCount)
+    {
+        var lastMsg = Messages.LastOrDefault();
+        // Render at most 30 rows in the bubble
+        var shown = results.Count > 30 ? results.Take(30).ToList() : results;
+        Messages.Add(new AIChatMessage
+        {
+            Role = AIChatRole.System,
+            Content = $"节点验证结果：{passedCount}/{results.Count} 通过" + (results.Count > 30 ? $"（显示前 30 条）" : ""),
+            Timestamp = DateTime.Now,
+            NodeResults = shown
+        });
+    }
 
     #endregion
 
@@ -542,20 +915,20 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
     #region Content Helpers
 
- private string ExtractProtocol(string nodeLink)
- {
- if (nodeLink.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase)) return "VMess";
- if (nodeLink.StartsWith("vless://", StringComparison.OrdinalIgnoreCase)) return "VLESS";
- if (nodeLink.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase)) return "Trojan";
- if (nodeLink.StartsWith("ss://", StringComparison.OrdinalIgnoreCase)) return "Shadowsocks";
- if (nodeLink.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase)) return "Hysteria2";
- if (nodeLink.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase)) return "TUIC";
- if (nodeLink.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase)) return "SOCKS";
- if (nodeLink.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase)) return "WireGuard";
- if (nodeLink.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase)) return "AnyTLS";
- if (nodeLink.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase)) return "Naive";
- return "Unknown";
- }
+    private string ExtractProtocol(string nodeLink)
+    {
+        if (nodeLink.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase)) return "VMess";
+        if (nodeLink.StartsWith("vless://", StringComparison.OrdinalIgnoreCase)) return "VLESS";
+        if (nodeLink.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase)) return "Trojan";
+        if (nodeLink.StartsWith("ss://", StringComparison.OrdinalIgnoreCase)) return "Shadowsocks";
+        if (nodeLink.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase)) return "Hysteria2";
+        if (nodeLink.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase)) return "TUIC";
+        if (nodeLink.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase)) return "SOCKS";
+        if (nodeLink.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase)) return "WireGuard";
+        if (nodeLink.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase)) return "AnyTLS";
+        if (nodeLink.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase)) return "Naive";
+        return "Unknown";
+    }
 
     private string ExtractAddress(string nodeLink)
     {
@@ -783,7 +1156,7 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         };
 
         var json = JsonSerializer.Serialize(requestBody);
-        var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+        var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
         if (aiConfig.ApiKey.IsNotEmpty())
         {
@@ -805,32 +1178,31 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                 return null;
             }
             return ParseNodesFromText(message ?? string.Empty);
-        } return null;
- }
+        }
+        return null;
+    }
 
- /// <summary>
- /// Sends a free-form chat message to the Hermes API (OpenAI-compatible /chat/completions)
- /// and returns the assistant's reply. The system prompt tells the model that it is
- /// conversing inside LDv2rayN, so it can reference local command keywords and
- /// suggest the user drive the app through this dialog.
- /// </summary>
- private async Task<string?> AskHermesAsync(AIConfigItem aiConfig, string userMessage)
- {
- try
- {
- using var httpClient = new HttpClient();
- httpClient.Timeout = TimeSpan.FromSeconds(90);
+    /// <summary>
+    /// Sends a free-form chat message to the Hermes API (OpenAI-compatible /chat/completions)
+    /// and returns the assistant's reply.
+    /// </summary>
+    private async Task<string?> AskHermesAsync(AIConfigItem aiConfig, string userMessage)
+    {
+        try
+        {
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(90);
 
- var requestBody = new
- {
- model = aiConfig.ModelId,
- messages = new object[]
- {
- new
- {
- role = "system",
- content =
- @"你是嵌入在 LDv2rayN 客户端中的 AI 助手（模型 hermesAPI）。当前用户在 Windows 桌面软件里通过聊天窗口跟你对话。
+            var requestBody = new
+            {
+                model = aiConfig.ModelId,
+                messages = new object[]
+                {
+                    new
+                    {
+                        role = "system",
+                        content =
+                        @"你是嵌入在 LDv2rayN 客户端中的 AI 助手（模型 hermesAPI）。当前用户在 Windows 桌面软件里通过聊天窗口跟你对话。
 
 背景：
 - LDv2rayN 是一个代理/VPN 客户端，用于绕过中国大陆的网络访问限制，可以管理 vless/vmess/trojan/shadowsocks/hysteria2/tuic 等节点。
@@ -842,52 +1214,51 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 2. 当用户的问题可以通过上述命令完成时，主动告诉用户「你可以在对话框输入 XXX」。
 3. 当用户询问与 VPN/代理/网络相关的知识时，尽量给出实用建议（例如如何选择节点、如何检测节点可用性、如何配置绕过限制）。
 4. 当用户粘贴了一个 URL 或节点链接，程序会自动处理，你不要重复处理，只需要确认。
-5. 支持 Markdown 格式（**粗体**、`code`、列表）。
-"}
-,
- new { role = "user", content = userMessage }
- },
- temperature = 0.7,
- max_tokens = 1500
- };
+5. 支持 Markdown 格式（**粗体**、`code`、列表）。"
+                    },
+                    new { role = "user", content = userMessage }
+                },
+                temperature = 0.7,
+                max_tokens = 1500
+            };
 
- var json = JsonSerializer.Serialize(requestBody);
- var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+            var json = JsonSerializer.Serialize(requestBody);
+            var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
- if (aiConfig.ApiKey.IsNotEmpty())
- {
- httpClient.DefaultRequestHeaders.Authorization =
- new AuthenticationHeaderValue("Bearer", aiConfig.ApiKey);
- }
+            if (aiConfig.ApiKey.IsNotEmpty())
+            {
+                httpClient.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue("Bearer", aiConfig.ApiKey);
+            }
 
- var response = await httpClient.PostAsync($"{aiConfig.ApiUrl}/chat/completions", httpContent);
- var responseJson = await response.Content.ReadAsStringAsync();
+            var response = await httpClient.PostAsync($"{aiConfig.ApiUrl}/chat/completions", httpContent);
+            var responseJson = await response.Content.ReadAsStringAsync();
 
- if (!response.IsSuccessStatusCode)
- {
- Logging.SaveLog($"AskHermesAsync failed: {response.StatusCode} {responseJson}");
- var errBody = responseJson.Length > 300 ? responseJson[..300] + "..." : responseJson;
- return $"❌ AI 服务返回错误：{response.StatusCode}\n\n`{errBody}`";
- }
+            if (!response.IsSuccessStatusCode)
+            {
+                Logging.SaveLog($"AskHermesAsync failed: {response.StatusCode} {responseJson}");
+                var errBody = responseJson.Length > 300 ? responseJson[..300] + "..." : responseJson;
+                return $"❌ AI 服务返回错误：{response.StatusCode}\n\n`{errBody}`";
+            }
 
- var doc = JsonDocument.Parse(responseJson);
- if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
- {
- var reply = choices[0].GetProperty("message").GetProperty("content").GetString();
- if (!string.IsNullOrWhiteSpace(reply))
- return reply;
- }
+            var doc = JsonDocument.Parse(responseJson);
+            if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+            {
+                var reply = choices[0].GetProperty("message").GetProperty("content").GetString();
+                if (!string.IsNullOrWhiteSpace(reply))
+                    return reply;
+            }
 
- return "（AI 未返回内容）";
- }
- catch (Exception ex)
- {
- Logging.SaveLog(_tag, ex);
- return $"❌ 请求 AI 服务失败：`{ex.Message}`";
- }
- }
+            return "（AI 未返回内容）";
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            return $"❌ 请求 AI 服务失败：`{ex.Message}`";
+        }
+    }
 
- private async Task<bool> TestNode(string nodeLink)
+    private async Task<bool> TestNode(string nodeLink)
     {
         try
         {
@@ -903,29 +1274,28 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
                 return true;
-            } // TCP connect test with DNS fallback: TCP unreachable can be transient
- // (overseas free nodes) — if the domain still resolves, admit the node
- // so a slow network doesn't drop every candidate. Both TCP and DNS
- // failing = dead link, reject.
- using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
- try
- {
- using var client = new TcpClient();
- await client.ConnectAsync(address, port, cts.Token);
- return client.Connected;
- }
- catch
- {
- try
- {
- var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
- return hostEntry.AddressList.Length > 0;
- }
- catch
- {
- return false;
- }
- }
+            }
+
+            // TCP connect test with DNS fallback
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(address, port, cts.Token);
+                return client.Connected;
+            }
+            catch
+            {
+                try
+                {
+                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
+                    return hostEntry.AddressList.Length > 0;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
         }
         catch
         {
@@ -941,20 +1311,22 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         foreach (var line in lines)
         {
             var trimmed = line.Trim().TrimStart('-', '*', ' ', '•');
-            if (string.IsNullOrEmpty(trimmed)) continue;if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) ||
- trimmed.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrEmpty(trimmed)) continue;
+
+            if (trimmed.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("vless://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("ss://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("socks://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("socks5://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("wireguard://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("anytls://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("naive://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("naive+https://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("naive+quic://", StringComparison.OrdinalIgnoreCase))
             {
                 nodes.Add(trimmed);
             }
@@ -1019,4 +1391,15 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
     }
 
     #endregion
+}
+
+/// <summary>GitHub repository item for user selection</summary>
+public partial class GitHubRepoItem : MyReactiveObject
+{
+    [Reactive] public partial string Owner { get; set; } = string.Empty;
+    [Reactive] public partial string Repo { get; set; } = string.Empty;
+    [Reactive] public partial string Description { get; set; } = string.Empty;
+    [Reactive] public partial int Stars { get; set; }
+    [Reactive] public partial bool IsSelected { get; set; } = true;
+    [Reactive] public partial string Url { get; set; } = string.Empty;
 }

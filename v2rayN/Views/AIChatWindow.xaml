@@ -102,6 +102,16 @@
             <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
             <Setter Property="CornerRadius" Value="8"/>
         </Style>
+        
+        <!-- 仓库列表项样式 -->
+        <Style x:Key="RepoItemBorder" TargetType="Border">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="12">
@@ -222,8 +232,81 @@
             </ScrollViewer>
         </Border>
 
+        <!-- GitHub Repository Selection Panel -->
+        <Border Grid.Row="2" Padding="8" Margin="0,8,0,0"
+                Visibility="{Binding IsRepoListVisible, Converter={StaticResource BoolToVis}}"
+                Background="{DynamicResource MaterialDesignCardBackground}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="📦 GitHub 仓库选择" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource MaterialDesignBody}"/>
+                    <TextBlock Text="{Binding GitHubRepos.Count, StringFormat=' ({0} 个仓库)'}"
+                               FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"
+                               Foreground="{DynamicResource MaterialDesignBody}"/>
+                </StackPanel>
+                
+                <!-- Repository List -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                    <ItemsControl ItemsSource="{Binding GitHubRepos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource RepoItemBorder}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <CheckBox Grid.Column="0" 
+                                                  IsChecked="{Binding IsSelected}"
+                                                  Margin="0,0,8,0"
+                                                  VerticalAlignment="Center"/>
+                                        
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Repo}" 
+                                                           FontWeight="SemiBold" FontSize="12"
+                                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                                                <TextBlock Text="{Binding Stars, StringFormat=' ⭐ {0}'}"
+                                                           FontSize="11" Margin="8,0,0,0"
+                                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Description}" 
+                                                       FontSize="10" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource MaterialDesignBody}"
+                                                       Opacity="0.7"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                
+                <!-- Action Buttons -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                    <Button Content="全选" Click="BtnSelectAll_Click"
+                            Style="{StaticResource ElegantButton}" Width="50" Height="28"
+                            FontSize="11" Margin="0,0,8,0"/>
+                    <Button Content="取消全选" Click="BtnDeselectAll_Click"
+                            Style="{StaticResource ElegantButton}" Width="70" Height="28"
+                            FontSize="11" Margin="0,0,8,0"/>
+                    <Button Content="导入所选" Click="BtnImportSelected_Click"
+                            Style="{StaticResource SendButtonStyle}" Width="80" Height="28"
+                            FontSize="11"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Progress bar -->
-        <Border Grid.Row="2" Padding="0" Margin="0,8,0,0"
+        <Border Grid.Row="3" Padding="0" Margin="0,8,0,0"
                 Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}"
                 Background="{DynamicResource MaterialDesignCardBackground}">
             <StackPanel Orientation="Vertical" Margin="12,8">
@@ -236,10 +319,11 @@
         </Border>
 
         <!-- Input -->
-        <Border Grid.Row="3" Padding="12" Margin="0,4,0,0"
+        <Border Grid.Row="4" Padding="12" Margin="0,4,0,0"
                 Background="{DynamicResource MaterialDesignCardBackground}">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -253,7 +337,15 @@
                     <TextBlock Text="🔍" FontSize="14"/>
                 </Button>
                 
-                <TextBox x:Name="txtInput" Grid.Column="1" Padding="10,8" FontSize="13"
+                <Button x:Name="btnSearchRepos" Grid.Column="1" Margin="0,0,8,0"
+                        Style="{StaticResource ElegantButton}"
+                        Width="32" Height="32" 
+                        ToolTip="搜索GitHub仓库"
+                        Click="BtnSearchRepos_Click">
+                    <TextBlock Text="📦" FontSize="14"/>
+                </Button>
+                
+                <TextBox x:Name="txtInput" Grid.Column="2" Padding="10,8" FontSize="13"
                          Background="{DynamicResource MaterialDesignPaper}"
                          Foreground="{DynamicResource MaterialDesignBody}"
                          BorderBrush="{DynamicResource MaterialDesignDivider}"
@@ -261,7 +353,7 @@
                          VerticalContentAlignment="Center"
                          KeyDown="TxtInput_KeyDown"/>
                 
-                <Button x:Name="btnSend" Grid.Column="2" Margin="8,0,0,0"
+                <Button x:Name="btnSend" Grid.Column="3" Margin="8,0,0,0"
                         Style="{StaticResource SendButtonStyle}"
                         Click="BtnSend_Click">
                     <TextBlock Text="➤" FontSize="16" Foreground="White"/>

@@ -156,9 +156,10 @@ public partial class CoreConfigSingboxService
         _coreConfig.dns ??= new Dns4Sbox();
         _coreConfig.dns.rules ??= [];
 
+        // server already routes to hosts-dns; preferred_by requires sing-box >= 1.14 and
+        // breaks 1.13.x with "unknown field", so it is intentionally omitted.
         _coreConfig.dns.rules.Add(new()
         {
-            preferred_by = Global.SingboxHostsDNSTag,
             server = Global.SingboxHostsDNSTag,
         });
 

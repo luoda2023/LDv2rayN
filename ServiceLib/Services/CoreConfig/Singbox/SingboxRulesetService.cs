@@ -79,7 +79,6 @@ public partial class CoreConfigSingboxService
 
         //Add ruleset srs
         _coreConfig.route.rule_set = [];
-        var containRemoteRuleset = false;
         foreach (var item in new HashSet<string>(ruleSets))
         {
             if (item.IsNullOrEmpty())
@@ -100,33 +99,32 @@ public partial class CoreConfigSingboxService
                 }
                 else
                 {
-                    containRemoteRuleset = true;
-
-                    var srsUrl = string.IsNullOrEmpty(_config.ConstItem.SrsSourceUrl)
-                        ? Global.SingboxRulesetUrl
-                        : _config.ConstItem.SrsSourceUrl;
-
-                    customRuleset = new()
-                    {
-                        type = "remote",
-                        format = "binary",
-                        tag = item,
-                        url = string.Format(srsUrl, item.StartsWith(geosite) ? geosite : geoip, item),
-                        http_client = Global.SingboxSrsDownloadHttpClientTag,
-                    };
+                    // 本地没有该规则集时不再生成 remote：核心启动时通过代理下载
+                    // 规则集（download_detour）在代理链路建立之前必然失败，会直接
+                    // 让核心起不来。改为跳过该规则集并移除规则中对它的引用，保证
+                    // 核心能正常启动；用户可通过“更新规则集”功能走代理补齐 srs。
+                    RemoveRuleSetRefs(_coreConfig, item);
+                    continue;
                 }
             }
             _coreConfig.route.rule_set.Add(customRuleset);
         }
+    }
 
-        if (containRemoteRuleset)
+    private static void RemoveRuleSetRefs(SingboxConfig config, string tag)
+    {
+        static void RemoveFrom(List<Rule4Sbox>? rules, string tag)
         {
-            _coreConfig.http_clients ??= [];
-            _coreConfig.http_clients.Add(new()
+            foreach (var rule in rules ?? [])
             {
-                tag = Global.SingboxSrsDownloadHttpClientTag,
-                detour = Global.ProxyTag,
-            });
+                rule.rule_set?.RemoveAll(t => t == tag);
+            }
+        }
+        RemoveFrom(config.route?.rules, tag);
+        RemoveFrom(config.dns?.rules, tag);
+        foreach (var rule in config.dns?.rules ?? [])
+        {
+            RemoveFrom(rule.rules, tag);
         }
     }
 }

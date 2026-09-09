@@ -29,6 +29,7 @@ public static class AISchedulerService
     /// Args: message, number of nodes added.
     /// </summary>
     public static event Action<string, int>? RunCompleted;
+    public static event Action<bool>? IsBusyChanged;
 
     /// <summary>
     /// Start the scheduler if AI auto-crawl is enabled in config.
@@ -49,43 +50,53 @@ public static class AISchedulerService
 
         Logging.SaveLog($"{_tag}: Starting auto-crawl scheduler, interval={intervalMinutes}min");
 
-    _timer = new Timer(async _ =>
-    {
+        _timer = new Timer(async _ =>
+        {
         if (_isRunning) return;
         _isRunning = true;
         _lastRunAtUtc = DateTime.UtcNow;
+        IsBusyChanged?.Invoke(true);
 
-        try
-        {
-            Logging.SaveLog($"{_tag}: Auto-crawl triggered");
-
-            var aiService = new AIFetchService(config, async (success, msg) =>
+            try
             {
-                Logging.SaveLog($"{_tag}: {msg}");
-                _lastMessage = msg;
-                await Task.CompletedTask;
-            });
+                Logging.SaveLog($"{_tag}: Auto-crawl triggered");
 
-            var result = await aiService.FetchAndAddNodesAsync();
-            _lastAddedNodes = result;
-            _lastSuccessAtUtc = DateTime.UtcNow;
-            _consecutiveFailures = 0;
-            _lastMessage = $"完成：新增 {result} 个节点";
-            Logging.SaveLog($"{_tag}: Auto-crawl completed, added {result} nodes");
-            RunCompleted?.Invoke(_lastMessage, result);
-        }
-        catch (Exception ex)
-        {
-            _consecutiveFailures++;
-            _lastMessage = $"失败：{ex.Message}";
-            Logging.SaveLog(_tag, ex);
-            RunCompleted?.Invoke(_lastMessage, 0);
-        }
+                var aiService = new AIFetchService(config, async (success, msg) =>
+                {
+                    Logging.SaveLog($"{_tag}: {msg}");
+                    _lastMessage = msg;
+                    await Task.CompletedTask;
+                });
+
+                // First: clean up invalid nodes in AI groups
+                var cleaned = await aiService.CleanInvalidNodesInAIGroups();
+                if (cleaned > 0)
+                {
+                    Logging.SaveLog($"{_tag}: Cleaned {cleaned} invalid nodes from AI groups");
+                }
+
+                // Then: fetch new nodes from specified URLs + GitHub search
+                var result = await aiService.FetchAndAddNodesAsync();
+                _lastAddedNodes = result;
+                _lastSuccessAtUtc = DateTime.UtcNow;
+                _consecutiveFailures = 0;
+                _lastMessage = $"完成：新增 {result} 个节点，清理 {cleaned} 个失效节点";
+                Logging.SaveLog($"{_tag}: Auto-crawl completed, added {result} nodes, cleaned {cleaned}");
+                RunCompleted?.Invoke(_lastMessage, result);
+            }
+            catch (Exception ex)
+            {
+                _consecutiveFailures++;
+                _lastMessage = $"失败：{ex.Message}";
+                Logging.SaveLog(_tag, ex);
+                RunCompleted?.Invoke(_lastMessage, 0);
+            }
         finally
         {
             _isRunning = false;
+            IsBusyChanged?.Invoke(false);
         }
-    }, null, interval, interval);
+        }, null, interval, interval);
     }
 
     /// <summary>

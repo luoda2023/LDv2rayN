@@ -15,7 +15,14 @@ public class AIFetchService
     {
         _config = config;
         _updateFunc = updateFunc;
-    }
+    }    // User-specified URLs to check daily
+    private static readonly string[] UserSpecifiedUrls =
+    {
+        "https://github.com/0xRadikal/Free-v2ray-Configs",
+        "https://github.com/cbusifabcap/daily_free_vpn",
+        "https://github.com/kanaltvyt-dev/FreeForYoung",
+        "https://github.com/hello-world-1989/cn-news",
+    };
 
     public async Task<int> FetchAndAddNodesAsync()
     {
@@ -30,51 +37,81 @@ public class AIFetchService
         {
             await _updateFunc(false, "🤖 AI正在搜索免费VPN节点...");
 
-            // Step 1: Ask AI to search GitHub for free VPN nodes
-            var nodes = await SearchGitHubForFreeNodes(aiConfig);
-            if (nodes == null || nodes.Count == 0)
+            // Step 1: Fetch from user-specified URLs + GitHub search
+            var allNodes = new List<string>();
+
+            // First: fetch from user-specified URLs
+            await _updateFunc(false, "📥 正在从指定链接获取节点...");
+            var specifiedNodes = await FetchFromSpecifiedUrls();
+            if (specifiedNodes.Count > 0)
+            {
+                allNodes.AddRange(specifiedNodes);
+                await _updateFunc(false, $"✅ 从指定链接获取到 {specifiedNodes.Count} 个节点");
+            }
+
+            // Then: GitHub search
+            await _updateFunc(false, "🔍 正在搜索GitHub...");
+            var searchNodes = await SearchGitHubForFreeNodes(aiConfig);
+            if (searchNodes != null && searchNodes.Count > 0)
+            {
+                foreach (var n in searchNodes)
+                {
+                    if (!allNodes.Contains(n)) allNodes.Add(n);
+                }
+            }
+
+            if (allNodes.Count == 0)
             {
                 AISearchTracker.RecordError("未找到可用的免费VPN节点");
                 await _updateFunc(false, "❌ AI未找到可用的免费VPN节点");
                 return 0;
             }
 
-            AISearchTracker.RecordCandidates(nodes);
-            await _updateFunc(false, $"🔍 AI找到 {nodes.Count} 个候选节点，正在验证...");
+            AISearchTracker.RecordCandidates(allNodes);
+            await _updateFunc(false, $"🔍 AI找到 {allNodes.Count} 个候选节点，正在快速验证...");
 
- // Step 2: Test nodes concurrently (max 20 in flight, 3 s each) —
- // serial testing of 200 candidates would take minutes.
- var validNodes = new List<string>();
- using var semaphore = new SemaphoreSlim(20);
- var tasks = nodes.Select(async node =>
- {
- await semaphore.WaitAsync();
- try
- {
- if (await TestNode(node))
- {
- lock (validNodes)
- {
- validNodes.Add(node);
- }
- }
- }
- finally
- {
- semaphore.Release();
- }
- }).ToList();
- await Task.WhenAll(tasks);
+            // Step 2: Test nodes with optimized concurrency and timeout
+            var validNodes = new List<string>();
+            var resultLock = new object();
+            using var semaphore = new SemaphoreSlim(10);
+            var tasks = allNodes.Select(async node =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    if (await TestNodeFast(node))
+                    {
+                        lock (resultLock)
+                        {
+                            validNodes.Add(node);
+                        }
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }).ToList();
 
- // Cap at MaxNodesPerSearch
- if (validNodes.Count > aiConfig.MaxNodesPerSearch)
- {
- validNodes = validNodes.Take(aiConfig.MaxNodesPerSearch).ToList();
- }
+            var completedTasks = new List<Task>();
+            foreach (var task in tasks)
+            {
+                completedTasks.Add(task);
+                if (validNodes.Count >= Math.Min(aiConfig.MaxNodesPerSearch, 50))
+                {
+                    break;
+                }
+            }
+            await Task.WhenAll(completedTasks);
 
- AISearchTracker.RecordTestResult(validNodes, nodes.Count);
+            if (validNodes.Count > aiConfig.MaxNodesPerSearch)
+            {
+                validNodes = validNodes.Take(aiConfig.MaxNodesPerSearch).ToList();
+            }
 
- if (validNodes.Count == 0)
+            AISearchTracker.RecordTestResult(validNodes, allNodes.Count);
+
+            if (validNodes.Count == 0)
             {
                 await _updateFunc(false, "⚠️ 所有节点验证均失败");
                 return 0;
@@ -85,7 +122,7 @@ public class AIFetchService
             var result = await ConfigHandler.AddBatchServers(_config, string.Join("\n", validNodes), subId, true);
 
             AISearchTracker.RecordImported(result);
-            await _updateFunc(true, $"🎉 AI成功添加 {result} 个有效节点到「{aiConfig.AiGroupRemarks}」分组");
+            await _updateFunc(true, $"🎉 AI快速添加 {result} 个有效节点到「{aiConfig.AiGroupRemarks}」分组");
             return result;
         }
         catch (Exception ex)
@@ -94,6 +131,194 @@ public class AIFetchService
             AISearchTracker.RecordError($"搜索失败: {ex.Message}");
             await _updateFunc(false, $"❌ AI搜索失败: {ex.Message}");
             return 0;
+        }
+    }
+
+    private async Task<List<string>> FetchFromSpecifiedUrls()
+    {
+        var nodes = new List<string>();
+        var urlLock = new object();
+
+        using var semaphore = new SemaphoreSlim(4);
+        var tasks = UserSpecifiedUrls.Select(async url =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                var fetched = await FetchNodesFromGitHubRepo(url);
+                if (fetched != null && fetched.Count > 0)
+                {
+                    lock (urlLock)
+                    {
+                        foreach (var n in fetched)
+                        {
+                            if (!nodes.Contains(n)) nodes.Add(n);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: FetchFromSpecifiedUrl {url} failed: {ex.Message}");
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+        return nodes;
+    }
+
+    private async Task<List<string>> FetchNodesFromGitHubRepo(string repoUrl)
+    {
+        var nodes = new List<string>();
+
+        // Extract owner/repo from URL
+        if (!repoUrl.Contains("github.com/")) return nodes;
+        var path = repoUrl.Replace("https://github.com/", "").TrimEnd('/');
+        var parts = path.Split('/');
+        if (parts.Length < 2) return nodes;
+
+        var owner = parts[0];
+        var repo = parts[1];
+
+        // Try common file paths
+        string[] paths =
+        {
+            "sub/sub_merge.txt",
+            "sub/sub.txt",
+            "sub.txt",
+            "subscribe",
+            "sub",
+            "v2ray",
+            "nodes.txt",
+            "list.txt",
+            "sub/base64.txt",
+            "subscribe.txt",
+        };
+
+        foreach (var p in paths)
+        {
+            try
+            {
+                var rawUrl = $"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}";
+                var fetched = await FetchWithMirrorFast(rawUrl);
+                if (fetched != null && fetched.Count > 0)
+                {
+                    nodes.AddRange(fetched);
+                    if (nodes.Count >= 100) break; // Stop after enough
+                }
+            }
+            catch { }
+        }
+
+        return nodes.Distinct().ToList();
+    }
+
+    /// <summary>
+    /// Clean invalid nodes in AI-managed groups. Only removes nodes from groups
+    /// that were created by AI (url contains 'ai-auto').
+    /// </summary>
+    public async Task<int> CleanInvalidNodesInAIGroups()
+    {
+        int totalRemoved = 0;
+
+        try
+        {
+            var subItems = await AppManager.Instance.SubItems();
+            if (subItems == null) return 0;
+
+            // Only clean AI-created groups
+            var aiGroups = subItems.Where(s =>
+                s.Url.Contains("ai-auto", StringComparison.OrdinalIgnoreCase) ||
+                s.Remarks.Contains("AI", StringComparison.OrdinalIgnoreCase) ||
+                s.Remarks.Contains("自动", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            foreach (var group in aiGroups)
+            {
+                var removed = await CleanInvalidNodesInGroup(group.Id);
+                totalRemoved += removed;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog($"{_tag}: CleanInvalidNodes failed: {ex.Message}");
+        }
+
+        return totalRemoved;
+    }
+
+    private async Task<int> CleanInvalidNodesInGroup(string subId)
+    {
+        int removed = 0;
+
+        try
+        {
+            // Get servers in this group using AppManager
+            var servers = await AppManager.Instance.ProfileItems(subId);
+            if (servers == null || servers.Count == 0) return 0;
+
+            var invalidServers = new List<ProfileItem>();
+
+            // Test each node concurrently - use Address and Port directly
+            using var semaphore = new SemaphoreSlim(10);
+            var tasks = servers.Select(async server =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    // Fast TCP test using address and port directly
+                    if (!string.IsNullOrEmpty(server.Address) && server.Port > 0)
+                    {
+                        var valid = await TestAddressFast(server.Address, server.Port);
+                        if (!valid)
+                        {
+                            lock (invalidServers)
+                            {
+                                invalidServers.Add(server);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+
+            // Remove invalid servers
+            if (invalidServers.Count > 0)
+            {
+                await ConfigHandler.RemoveServers(_config, invalidServers);
+                removed = invalidServers.Count;
+                Logging.SaveLog($"{_tag}: Removed {removed} invalid nodes from group {subId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog($"{_tag}: CleanInvalidNodesInGroup failed: {ex.Message}");
+        }
+
+        return removed;
+    }
+
+    private async Task<bool> TestAddressFast(string address, int port)
+    {
+        try
+        {
+            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1")) return true;
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var client = new TcpClient();
+            await client.ConnectAsync(address, port, cts.Token);
+            return client.Connected;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -294,11 +519,6 @@ public class AIFetchService
 
     private async Task<List<string>?> SearchGitHubForFreeNodes(AIConfigItem aiConfig)
     {
-        // Real GitHub search: query the (anonymous, unauthenticated) repo search
-        // API for freshly-updated free-VPN repos, then try each repo's common
-        // subscription file paths and parse node links out of them. LLM-only
-        // search was removed — a language model has no live internet and only
-        // hallucinated stale links.
         var found = new List<string>();
 
         string[] SearchQueries =
@@ -312,7 +532,6 @@ public class AIFetchService
             "free vpn subscription github",
         };
 
-        // Common subscription file paths inside each repo, in priority order.
         string[] CandidatePaths =
         {
             "sub/sub_merge.txt",
@@ -332,22 +551,26 @@ public class AIFetchService
         };
 
         using var searchClient = new HttpClient();
-        searchClient.Timeout = TimeSpan.FromSeconds(15);
+        searchClient.Timeout = TimeSpan.FromSeconds(10);
         searchClient.DefaultRequestHeaders.UserAgent.ParseAdd("LDv2rayN/1.0 (github-search)");
         searchClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/vnd.github+json");
 
+        // Parallel GitHub repo search (3 concurrent)
         var repos = new List<(string Owner, string Repo)>();
-        foreach (var query in SearchQueries)
+        var repoLock = new object();
+        using var searchSemaphore = new SemaphoreSlim(3);
+        var searchTasks = SearchQueries.Select(async query =>
         {
-            if (repos.Count >= 12) break;
+            await searchSemaphore.WaitAsync();
             try
             {
-                var url = $"https://api.github.com/search/repositories?q={Uri.EscapeDataString(query)}&sort=updated&order=desc&per_page=6";
+                if (repos.Count >= 15) return;
+                var url = $"https://api.github.com/search/repositories?q={Uri.EscapeDataString(query)}&sort=updated&order=desc&per_page=5";
                 var resp = await searchClient.GetAsync(url);
-                if (!resp.IsSuccessStatusCode) continue;
+                if (!resp.IsSuccessStatusCode) return;
                 var json = await resp.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("items", out var items)) continue;
+                if (!doc.RootElement.TryGetProperty("items", out var items)) return;
                 foreach (var item in items.EnumerateArray())
                 {
                     if (!item.TryGetProperty("full_name", out var fn)) continue;
@@ -356,20 +579,27 @@ public class AIFetchService
                     var parts = full.Split('/');
                     if (parts.Length != 2) continue;
                     var pair = (parts[0], parts[1]);
-                    if (!repos.Contains(pair)) repos.Add(pair);
+                    lock (repoLock)
+                    {
+                        if (!repos.Contains(pair) && repos.Count < 15)
+                            repos.Add(pair);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Logging.SaveLog($"{_tag}: repo search '{query}' failed: {ex.Message}");
             }
-        }
+            finally
+            {
+                searchSemaphore.Release();
+            }
+        });
+        await Task.WhenAll(searchTasks);
 
-        // Start the tracked run once the repo list is known.
         AISearchTracker.BeginRun(repos.Count);
 
-        // Also always include the three long-lived aggregator repos as a
-        // reliable fallback even if GitHub search is rate-limited.
+        // Fallback repos (always reliable)
         string[] FallbackRaw =
         {
             "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge.txt",
@@ -377,19 +607,18 @@ public class AIFetchService
             "https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub",
         };
 
-        // Probe repo candidate paths + fallback raw URLs concurrently.
         var probeUrls = new List<string>();
         foreach (var (owner, repo) in repos)
         {
-            foreach (var p in CandidatePaths)
+            foreach (var p in CandidatePaths.Take(8)) // Reduced from 14 to 8 for speed
             {
                 probeUrls.Add($"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}");
             }
         }
         probeUrls.AddRange(FallbackRaw);
 
-        // Limit concurrency so we don't hammer GitHub with 100+ requests at once.
-        using var fetchSemaphore = new SemaphoreSlim(6);
+        // Parallel fetch with higher concurrency (10)
+        using var fetchSemaphore = new SemaphoreSlim(10);
         var fetchTasks = probeUrls.Select(async rawUrl =>
         {
             List<string>? nodes = null;
@@ -398,7 +627,7 @@ public class AIFetchService
                 await fetchSemaphore.WaitAsync();
                 try
                 {
-                    nodes = await FetchWithMirror(rawUrl);
+                    nodes = await FetchWithMirrorFast(rawUrl);
                 }
                 finally
                 {
@@ -441,7 +670,6 @@ public class AIFetchService
             "https://ghproxy.net/",
         };
 
-        // Try direct first, then each mirror until one yields nodes.
         var attempts = new List<string> { rawUrl };
         attempts.AddRange(Mirrors.Select(m => m + rawUrl));
 
@@ -462,7 +690,6 @@ public class AIFetchService
                 var nodes = ParseNodesFromResponse(text);
                 if (nodes.Count == 0 && text.Trim().Length > 40)
                 {
-                    // Base64-encoded subscription (with whitespace stripped).
                     try
                     {
                         var cleaned = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
@@ -470,7 +697,7 @@ public class AIFetchService
                         var decoded = Encoding.UTF8.GetString(decodedBytes);
                         nodes = ParseNodesFromResponse(decoded);
                     }
-                    catch { /* not valid base64; ignore */ }
+                    catch { }
                 }
 
                 if (nodes.Count > 0)
@@ -481,6 +708,74 @@ public class AIFetchService
             catch (Exception ex)
             {
                 Logging.SaveLog($"{_tag}: fetch {url} failed: {ex.Message}");
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<List<string>?> FetchWithMirrorFast(string rawUrl)
+    {
+        string[] Mirrors =
+        {
+            "https://ghfast.top/",
+            "https://gh-proxy.com/",
+            "https://ghproxy.net/",
+        };
+
+        var attempts = new List<string> { rawUrl };
+        attempts.AddRange(Mirrors.Select(m => m + rawUrl));
+
+        bool usedMirror = false;
+        foreach (var url in attempts)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(8);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                var resp = await client.GetAsync(url);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    AISearchTracker.RecordFetchResult(false);
+                    continue;
+                }
+                var text = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(text) || text.Length > 2_000_000)
+                {
+                    AISearchTracker.RecordFetchResult(false);
+                    continue;
+                }
+
+                var nodes = ParseNodesFromResponse(text);
+                if (nodes.Count == 0 && text.Trim().Length > 40)
+                {
+                    try
+                    {
+                        var cleaned = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
+                        var decodedBytes = Convert.FromBase64String(cleaned);
+                        var decoded = Encoding.UTF8.GetString(decodedBytes);
+                        nodes = ParseNodesFromResponse(decoded);
+                    }
+                    catch { }
+                }
+
+                if (nodes.Count > 0)
+                {
+                    AISearchTracker.RecordFetchResult(true);
+                    if (usedMirror)
+                        AISearchTracker.RecordMirrorFallback(url);
+                    return nodes;
+                }
+
+                if (!usedMirror && url != rawUrl)
+                    usedMirror = true;
+            }
+            catch
+            {
+                AISearchTracker.RecordFetchResult(false);
             }
         }
 
@@ -541,28 +836,65 @@ public class AIFetchService
             if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
                 return true;
-            } // TCP connect test with DNS fallback: overseas free nodes are often
- // transiently TCP-unreachable but still usable. Admit if TCP connects
- // OR the domain resolves; reject only when both fail.
- using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
- try
- {
- using var client = new TcpClient();
- await client.ConnectAsync(address, port, cts.Token);
- return client.Connected;
- }
- catch
- {
- try
- {
- var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
- return hostEntry.AddressList.Length > 0;
- }
- catch
- {
- return false;
- }
- }
+            }
+
+            // TCP connect test with DNS fallback
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(address, port, cts.Token);
+                return client.Connected;
+            }
+            catch
+            {
+                try
+                {
+                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
+                    return hostEntry.AddressList.Length > 0;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<bool> TestNodeFast(string nodeLink)
+    {
+        try
+        {
+            var profile = FmtHandler.ResolveConfig(nodeLink, out _);
+            if (profile == null || !profile.IsValid())
+            {
+                return false;
+            }
+
+            var address = profile.Address;
+            var port = profile.Port;
+
+            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
+            {
+                return true;
+            }
+
+            // Fast TCP test: 2 second timeout, no DNS fallback
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try
+            {
+                using var client = new TcpClient();
+                await client.ConnectAsync(address, port, cts.Token);
+                return client.Connected;
+            }
+            catch
+            {
+                return false;
+            }
         }
         catch
         {

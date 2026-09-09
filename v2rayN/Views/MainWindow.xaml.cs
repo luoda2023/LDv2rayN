@@ -12,6 +12,7 @@ public partial class MainWindow
     private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
     private BackupAndRestoreView? _backupAndRestoreView;
     private AIChatWindow? _aiChatWindow;
+    private System.Windows.Threading.DispatcherTimer? _aiRingTimer;
 
     public MainWindow()
     {
@@ -31,6 +32,7 @@ public partial class MainWindow
 
         this.WhenActivated(disposables =>
         {
+            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated entered\n");
             //servers
             this.BindCommand(ViewModel, vm => vm.AddVmessServerCmd, v => v.menuAddVmessServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddVlessServerCmd, v => v.menuAddVlessServer).DisposeWith(disposables);
@@ -50,6 +52,7 @@ public partial class MainWindow
             this.BindCommand(ViewModel, vm => vm.AddServerViaClipboardCmd, v => v.menuAddServerViaClipboard).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddServerViaScanCmd, v => v.menuAddServerViaScan).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddServerViaImageCmd, v => v.menuAddServerViaImage).DisposeWith(disposables);
+            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} marker1 after servers bindings\n");
 
             //sub
             this.BindCommand(ViewModel, vm => vm.SubSettingCmd, v => v.menuSubSetting).DisposeWith(disposables);
@@ -61,7 +64,11 @@ public partial class MainWindow
             //setting
             this.BindCommand(ViewModel, vm => vm.OptionSettingCmd, v => v.menuOptionSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RoutingSettingCmd, v => v.menuRoutingSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);        // 智能获取：API 有效时后台启动调度器，不再弹设置窗口；否则打开设置 menuAISetting.Click += (s, e) =>
+            this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);
+            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} marker2 after DNS binding, before menuAISetting\n");
+
+            // 智能获取：API 有效时后台启动调度器，不再弹设置窗口；否则打开设置
+            menuAISetting.Click += (s, e) =>
  {
  // 设置入口：无论配置是否有效，都打开设置窗口，让用户能看到/修改
  // API 地址、密钥、模型、分组、间隔等。之前改成"API 有效就不弹窗"
@@ -154,14 +161,26 @@ public partial class MainWindow
     // Floating panel: Show() instead of ShowDialog() so the main window stays usable.
     // Shared between the menu item, the floating bottom-right button, and the tray
     // icon left-click — only one instance.
+    System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated binding AI handlers\n");
     var toggleAi = ToggleAiChatPanel;
     menuAIChat.Click += (s, e) => toggleAi();
     btnAiAssistant.Click += (s, e) => toggleAi();
+    System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated AI handlers bound\n");
 
     // Tray icon left-click opens the AI assistant (plus shows the main window).
     ViewModel.StatusBarViewModel?.OpenAiChatRequested.AsObservable()
         .Subscribe(_ => toggleAi())
         .DisposeWith(disposables);
+
+    // AI ring progress: subscribe to AISchedulerService.RunCompleted
+    ServiceLib.Services.AISchedulerService.RunCompleted += (msg, count) =>
+    {
+        Dispatcher.BeginInvoke(() => IsAIProcessing = false);
+    };
+    ServiceLib.Services.AISchedulerService.IsBusyChanged += (busy) =>
+    {
+        Dispatcher.BeginInvoke(() => IsAIProcessing = busy);
+    };
     menuLeakDetection.Click += (s, e) =>
     {
         var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
@@ -278,6 +297,41 @@ public partial class MainWindow
         await Task.CompletedTask;
     }
 
+    public bool IsAIProcessing
+    {
+        get => _isAIProcessing;
+        set
+        {
+            if (_isAIProcessing == value) return;
+            _isAIProcessing = value;
+            if (value)
+                StartAIRingAnimation();
+            else
+                StopAIRingAnimation();
+        }
+    }
+    private bool _isAIProcessing;
+
+    private void StartAIRingAnimation()
+    {
+        if (_aiRingTimer != null) return;
+        _aiRingTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(30)
+        };
+        _aiRingTimer.Tick += (s, e) =>
+        {
+            aiProgressRotate.Angle = (aiProgressRotate.Angle + 6) % 360;
+        };
+        _aiRingTimer.Start();
+    }
+
+    private void StopAIRingAnimation()
+    {
+        _aiRingTimer?.Stop();
+        _aiRingTimer = null;
+    }
+
     private void OnHotkeyHandler(EGlobalHotkey e)
     {
         switch (e)
@@ -388,37 +442,46 @@ public partial class MainWindow
     /// </summary>
     private void ToggleAiChatPanel()
     {
-        if (_aiChatWindow is { IsVisible: true })
+        System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} entered, window={( _aiChatWindow == null ? "null" : (_aiChatWindow.IsVisible ? "visible" : "hidden"))}\n");
+        try
         {
-            _aiChatWindow.Hide();
-            return;
-        }
-
-        if (_aiChatWindow == null)
-        {
-            try
+            if (_aiChatWindow is { IsVisible: true })
             {
-                _aiChatWindow = new AIChatWindow { Owner = this };
-                _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
-            }
-            catch (Exception ex)
-            {
-                Logging.SaveLog($"AIChatWindow creation failed: {ex}");
-                MessageBox.Show(
-                    $"AI 对话框创建失败：{ex.Message}",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _aiChatWindow.Hide();
                 return;
             }
+
+            if (_aiChatWindow == null)
+            {
+                try
+                {
+                    _aiChatWindow = new AIChatWindow { Owner = this };
+                    _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
+                }
+                catch (Exception ex)
+                {
+                    Logging.SaveLog($"AIChatWindow creation failed: {ex}");
+                    MessageBox.Show(
+                        $"AI 对话框创建失败：{ex.Message}",
+                        "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            // Re-anchor to the bottom-right of the main window every time.
+            double anchorRight = Left + Width - _aiChatWindow.Width - 16;
+            double anchorBottom = Top + Height - _aiChatWindow.Height - 16;
+            _aiChatWindow.Left = Math.Max(anchorRight, 0);
+            _aiChatWindow.Top = Math.Max(anchorBottom, 0);
+
+            _aiChatWindow.Show();
+            _aiChatWindow.Activate();
+            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} shown ok, visible={_aiChatWindow.IsVisible}\n");
         }
-
-        // Re-anchor to the bottom-right of the main window every time.
-        double anchorRight = Left + Width - _aiChatWindow.Width - 16;
-        double anchorBottom = Top + Height - _aiChatWindow.Height - 16;
-        _aiChatWindow.Left = Math.Max(anchorRight, 0);
-        _aiChatWindow.Top = Math.Max(anchorBottom, 0);
-
-        _aiChatWindow.Show();
-        _aiChatWindow.Activate();
+        catch (Exception ex)
+        {
+            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} EXCEPTION: {ex}\n");
+        }
     }
 
     #endregion Event

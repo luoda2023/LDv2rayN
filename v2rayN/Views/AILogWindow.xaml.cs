@@ -39,6 +39,18 @@ public partial class AILogWindow : Window
             // Last search run details
             if (AISearchTracker.HasRun)
             {
+                txtReposFound.Text = AISearchTracker.ReposFound.ToString();
+                txtFetchedUrls.Text = AISearchTracker.FetchedUrls.ToString();
+                txtFetchErrors.Text = AISearchTracker.FetchErrors > 0
+                    ? $"({AISearchTracker.FetchErrors} 失败)"
+                    : "(全部成功)";
+                txtFetchErrors.Foreground = AISearchTracker.FetchErrors > 0
+                    ? System.Windows.Media.Brushes.OrangeRed
+                    : System.Windows.Media.Brushes.LightGreen;
+                txtMirrorFallbacks.Text = AISearchTracker.MirrorFallbacks.ToString();
+                txtMirrorFallbacks.Foreground = AISearchTracker.MirrorFallbacks > 0
+                    ? System.Windows.Media.Brushes.Khaki
+                    : System.Windows.Media.Brushes.LightGray;
                 txtCandidates.Text = AISearchTracker.CandidatesFound.ToString();
                 txtCandidatesByProto.Text = FormatProtoMap(AISearchTracker.CandidatesByProtocol);
                 txtPassed.Text = AISearchTracker.Passed.ToString();
@@ -51,6 +63,10 @@ public partial class AILogWindow : Window
             }
             else
             {
+                txtReposFound.Text = "0";
+                txtFetchedUrls.Text = "0";
+                txtFetchErrors.Text = "";
+                txtMirrorFallbacks.Text = "0";
                 txtCandidates.Text = "0";
                 txtCandidatesByProto.Text = "";
                 txtPassed.Text = "0";

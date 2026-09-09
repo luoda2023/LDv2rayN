@@ -580,6 +580,112 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
     #region Backend Interface Calls
 
+    /// <summary>Test all nodes in the current AI subscription group</summary>
+    public async Task TestAllNodesAsync()
+    {
+        if (IsProcessing) return;
+
+        IsProcessing = true;
+        AddMessage(AIChatRole.User, "🔍 测试全部节点");
+
+        try
+        {
+            AddMessage(AIChatRole.AI, "正在测试最近添加的节点...");
+
+            // Test recent nodes from the last search
+            var recentNodes = Messages
+                .Where(m => m.NodeResults?.Count > 0)
+                .SelectMany(m => m.NodeResults!)
+                .Where(r => r.Status == AIChatNodeStatus.Passed)
+                .Select(r => r.NodeLink)
+                .Distinct()
+                .Take(50)
+                .ToList();
+
+            if (recentNodes.Count == 0)
+            {
+                AddMessage(AIChatRole.AI, "⚠️ 没有找到可测试的节点。\n\n你可以先通过AI搜索获取免费节点，然后再测试。");
+                return;
+            }
+
+            AddMessage(AIChatRole.AI, $"📋 找到 **{recentNodes.Count}** 个节点，开始测试...");
+
+            // Test nodes concurrently
+            var results = new List<AIChatNodeResult>();
+            var validNodes = new List<string>();
+            var resultLock = new object();
+
+            using var semaphore = new SemaphoreSlim(20);
+            var testTasks = recentNodes.Select(async nodeLink =>
+            {
+                var result = new AIChatNodeResult
+                {
+                    NodeLink = nodeLink,
+                    DisplayName = ExtractNodeName(nodeLink),
+                    Protocol = ExtractProtocol(nodeLink),
+                    Address = ExtractAddress(nodeLink),
+                    Status = AIChatNodeStatus.Testing,
+                    StatusText = "正在验证..."
+                };
+
+                lock (resultLock)
+                {
+                    results.Add(result);
+                }
+
+                await semaphore.WaitAsync();
+                bool passed;
+                try
+                {
+                    passed = await TestNode(nodeLink);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+
+                if (passed)
+                {
+                    result.Status = AIChatNodeStatus.Passed;
+                    result.StatusText = "✅ 可用";
+                    lock (resultLock)
+                    {
+                        validNodes.Add(nodeLink);
+                    }
+                }
+                else
+                {
+                    result.Status = AIChatNodeStatus.Failed;
+                    result.StatusText = "❌ 失效";
+                }
+            }).ToList();
+
+            await Task.WhenAll(testTasks);
+
+            // Show results
+            AddNodeResultMessage(results, validNodes.Count);
+
+            if (validNodes.Count < recentNodes.Count)
+            {
+                var failedCount = recentNodes.Count - validNodes.Count;
+                AddMessage(AIChatRole.AI, $"⚠️ 测试完成：{validNodes.Count} 个可用，{failedCount} 个失效。\n\n💡 建议定期点击「测试全部」按钮检查节点状态。");
+            }
+            else
+            {
+                AddMessage(AIChatRole.AI, $"✅ 测试完成：所有 **{recentNodes.Count}** 个节点均可用！");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+            AddMessage(AIChatRole.AI, $"❌ 测试过程中出现错误：\n\n`{ex.Message}`");
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
     private async Task<string> DownloadUrlContent(string url)
     {
         try

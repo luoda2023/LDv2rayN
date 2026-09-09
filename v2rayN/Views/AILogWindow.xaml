@@ -50,6 +50,21 @@
    <StackPanel>
     <TextBlock Foreground="#6C7086" FontSize="11" Text="最近一次搜索明细" Margin="0,0,0,4"/>
     <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2,0,0">
+     <TextBlock Grid.Column="0" Foreground="#A6ADC8" FontSize="12" Text="仓库: " VerticalAlignment="Center"/>
+     <TextBlock x:Name="txtReposFound" Grid.Column="1" Foreground="#CDD6F4" FontSize="12" FontWeight="SemiBold" Text="0"/>
+     <TextBlock Grid.Column="2" Foreground="#6C7086" FontSize="11" Text="" Margin="8,0,0,0"/>
+    </Grid>
+    <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2,0,0">
+     <TextBlock Grid.Column="0" Foreground="#A6ADC8" FontSize="12" Text="抓取: " VerticalAlignment="Center"/>
+     <TextBlock x:Name="txtFetchedUrls" Grid.Column="1" Foreground="#CDD6F4" FontSize="12" FontWeight="SemiBold" Text="0"/>
+     <TextBlock x:Name="txtFetchErrors" Grid.Column="2" Foreground="#6C7086" FontSize="11" Text="" Margin="8,0,0,0"/>
+    </Grid>
+    <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2,0,0">
+     <TextBlock Grid.Column="0" Foreground="#A6ADC8" FontSize="12" Text="镜像回退: " VerticalAlignment="Center"/>
+     <TextBlock x:Name="txtMirrorFallbacks" Grid.Column="1" Foreground="#F9E2AF" FontSize="12" FontWeight="SemiBold" Text="0"/>
+     <TextBlock Grid.Column="2" Foreground="#6C7086" FontSize="11" Text="" Margin="8,0,0,0"/>
+    </Grid>
+    <Grid ColumnDefinitions="Auto,Auto,*" Margin="0,2,0,0">
      <TextBlock Grid.Column="0" Foreground="#A6ADC8" FontSize="12" Text="候选: " VerticalAlignment="Center"/>
      <TextBlock x:Name="txtCandidates" Grid.Column="1" Foreground="#CDD6F4" FontSize="12" FontWeight="SemiBold" Text="0"/>
      <TextBlock x:Name="txtCandidatesByProto" Grid.Column="2" Foreground="#6C7086" FontSize="11" Text="" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>

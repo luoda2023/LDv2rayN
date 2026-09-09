@@ -15,6 +15,9 @@ public static class AISearchTracker
     public static int Passed { get; private set; }
     public static int Failed { get; private set; }
     public static int Imported { get; private set; }
+    public static int MirrorFallbacks { get; private set; }
+    public static int FetchedUrls { get; private set; }
+    public static int FetchErrors { get; private set; }
 
     public static Dictionary<string, int> CandidatesByProtocol { get; } = [];
     public static Dictionary<string, int> PassedByProtocol { get; } = [];
@@ -34,6 +37,9 @@ public static class AISearchTracker
             Passed = 0;
             Failed = 0;
             Imported = 0;
+            MirrorFallbacks = 0;
+            FetchedUrls = 0;
+            FetchErrors = 0;
             CandidatesByProtocol.Clear();
             PassedByProtocol.Clear();
             _timeline.Clear();
@@ -86,6 +92,24 @@ public static class AISearchTracker
         {
             Imported = count;
             AddStepLocked($"导入完成：{count} 个节点入组");
+        }
+    }
+
+    public static void RecordMirrorFallback(string url)
+    {
+        lock (_lock)
+        {
+            MirrorFallbacks++;
+            AddStepLocked($"镜像回退: {url[..Math.Min(url.Length, 60)]}...");
+        }
+    }
+
+    public static void RecordFetchResult(bool success)
+    {
+        lock (_lock)
+        {
+            FetchedUrls++;
+            if (!success) FetchErrors++;
         }
     }
 

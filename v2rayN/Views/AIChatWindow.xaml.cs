@@ -97,24 +97,58 @@ public partial class AIChatWindow : Window
     }
 
  private void BtnMinimize_Click(object sender, RoutedEventArgs e) => Hide();
- private void BtnClose_Click(object sender, RoutedEventArgs e) => Hide();
+ private void BtnClose_Click(object sender, RoutedEventArgs e) => Hide();    private void BtnSettings_Click(object sender, RoutedEventArgs e)
+    {
+        // Open the same AISettingWindow the top menu uses. Bring this dialog
+        // forward after the modal returns so the AI dialog stays on top.
+        try
+        {
+            var vm = new ServiceLib.ViewModels.AISettingViewModel();
+            var dialog = new AISettingWindow { DataContext = vm };
+            dialog.ShowDialog();
+            Activate();
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog("AIChatWindow.BtnSettings", ex);
+        }
+    }
 
- private void BtnSettings_Click(object sender, RoutedEventArgs e)
- {
- // Open the same AISettingWindow the top menu uses. Bring this dialog
- // forward after the modal returns so the AI dialog stays on top.
- try
- {
- var vm = new ServiceLib.ViewModels.AISettingViewModel();
- var dialog = new AISettingWindow { DataContext = vm };
- dialog.ShowDialog();
- Activate();
- }
- catch (Exception ex)
- {
- Logging.SaveLog("AIChatWindow.BtnSettings", ex);
- }
- }
+    private void BtnTestAll_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.IsProcessing) return;
+        _ = _vm.TestAllNodesAsync();
+        ScrollToEnd();
+    }
+
+    private void CopyMessage_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is string content)
+        {
+            try
+            {
+                Clipboard.SetText(content);
+                // Show brief feedback
+                var tooltip = new ToolTip { Content = "已复制" };
+                tooltip.IsOpen = true;
+                tooltip.StaysOpen = false;
+                tooltip.PlacementTarget = button;
+                tooltip.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                // Auto-close after 1 second
+                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                timer.Tick += (s, args) =>
+                {
+                    tooltip.IsOpen = false;
+                    timer.Stop();
+                };
+                timer.Start();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Copy failed: {ex.Message}");
+            }
+        }
+    }
 
     private void TxtInput_KeyDown(object sender, KeyEventArgs e)
     {

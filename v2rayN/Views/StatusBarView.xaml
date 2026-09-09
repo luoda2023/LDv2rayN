@@ -23,7 +23,8 @@
                 <StackPanel
                     Margin="{StaticResource MarginLeftRight8}"
                     VerticalAlignment="Center"
-                    DockPanel.Dock="Right">
+                    DockPanel.Dock="Right"
+                    Visibility="Collapsed">
                     <TextBlock
                         x:Name="txtSpeedProxyDisplay"
                         HorizontalAlignment="Right"
@@ -39,7 +40,8 @@
                     Width="Auto"
                     Margin="{StaticResource MarginLeftRight8}"
                     VerticalAlignment="Center"
-                    DockPanel.Dock="Left">
+                    DockPanel.Dock="Left"
+                    Visibility="Collapsed">
                     <TextBlock x:Name="txtInboundDisplay" Style="{StaticResource StatusbarItem}" />
                     <Border Margin="1" />
                     <TextBlock x:Name="txtInboundLanDisplay" Style="{StaticResource StatusbarItem}" />
@@ -84,18 +86,29 @@
                         <ComboBoxItem Content="{x:Static resx:ResUI.menuSystemProxyPac}" />
                     </ComboBox>
 
-                    <ComboBox
-                        x:Name="cmbRoutings2"
-                        Width="160"
-                        Margin="{StaticResource MarginLeftRight8}"
-                        materialDesign:HintAssist.Hint="{x:Static resx:ResUI.menuRouting}"
-                        AutomationProperties.Name="{x:Static resx:ResUI.menuRouting}"
-                        DisplayMemberPath="Remarks"
-                        FontSize="{DynamicResource StdFontSize}"
-                        Style="{StaticResource MaterialDesignFloatingHintComboBox}" />
-                </StackPanel>
+                <ComboBox
+                    x:Name="cmbRoutings2"
+                    Width="160"
+                    Margin="{StaticResource MarginLeftRight8}"
+                    materialDesign:HintAssist.Hint="{x:Static resx:ResUI.menuRouting}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuRouting}"
+                    DisplayMemberPath="Remarks"
+                    FontSize="{DynamicResource StdFontSize}"
+                    Style="{StaticResource MaterialDesignFloatingHintComboBox}" />
+            </StackPanel>
 
-                <StackPanel Margin="{StaticResource MarginLeftRight8}" VerticalAlignment="Center">
+            <!-- Connection status (right of the routing combo): 已连接 + 延迟 + 速度 -->
+            <StackPanel
+                Margin="{StaticResource MarginLeftRight8}"
+                VerticalAlignment="Center"
+                DockPanel.Dock="Left"
+                Orientation="Horizontal">
+                <TextBlock x:Name="txtConnectionDisplay" Style="{StaticResource StatusbarItem}" />
+                <TextBlock x:Name="txtLatencyDisplay" Style="{StaticResource StatusbarItem}" />
+                <TextBlock x:Name="txtStatusSpeedDisplay" Style="{StaticResource StatusbarItem}" />
+            </StackPanel>
+
+                <StackPanel Margin="{StaticResource MarginLeftRight8}" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock x:Name="txtRunningServerDisplay" Style="{StaticResource StatusbarItem}" />
                     <Border Margin="1" />
                     <TextBlock x:Name="txtRunningInfoDisplay" Style="{StaticResource StatusbarItem}" />

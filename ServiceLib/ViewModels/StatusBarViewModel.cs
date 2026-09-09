@@ -7,10 +7,11 @@ public partial class StatusBarViewModel : MyReactiveObject
     public Interaction<RxVoid, RxVoid> DispatcherRefreshIconInteraction { get; } = new();
     public EventChannel<bool> SubscriptionsUpdateRequested { get; } = new();
     public EventChannel<bool?> ShowHideWindowRequested { get; } = new();
- public EventChannel<RxVoid> OpenAiChatRequested { get; } = new();
+ public EventChannel<RxVoid> OpenAiChatRequested { get; } = new();        private static readonly Lazy<StatusBarViewModel> _instance = new(() => new());
+        public static StatusBarViewModel Instance => _instance.Value;
 
-    private static readonly Lazy<StatusBarViewModel> _instance = new(() => new());
-    public static StatusBarViewModel Instance => _instance.Value;
+        // Fires every 20 s so the bottom connection / latency line stays current.
+        private System.Threading.Timer? _latencyTimer;
 
     public EventChannel<string> SetDefaultServerRequested { get; } = new();
     public EventChannel<RxVoid> ReloadRequested { get; } = new();
@@ -91,13 +92,21 @@ public partial class StatusBarViewModel : MyReactiveObject
     public partial string RunningInfoDisplay { get; set; }
 
     [Reactive]
-    public partial string SpeedProxyDisplay { get; set; }
+    public partial string SpeedProxyDisplay { get; set; }        [Reactive]
+        public partial string SpeedDirectDisplay { get; set; }
 
-    [Reactive]
-    public partial string SpeedDirectDisplay { get; set; }
+        // Bottom bar: connection status, latency, and short speed line.
+        [Reactive]
+        public partial string ConnectionDisplay { get; set; }
 
-    [Reactive]
-    public partial bool EnableTun { get; set; }
+        [Reactive]
+        public partial string LatencyDisplay { get; set; }
+
+        [Reactive]
+        public partial string StatusSpeedDisplay { get; set; }
+
+        [Reactive]
+        public partial bool EnableTun { get; set; }
 
     [Reactive]
     public partial bool BlIsNonWindows { get; set; }
@@ -205,16 +214,25 @@ public partial class StatusBarViewModel : MyReactiveObject
         AppEvents.DispatcherStatisticsRequested
             .AsObservable()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SubscribeAsync(async result => await UpdateStatistics(result));
-
-        AppEvents.SysProxyChangeRequested
+            .SubscribeAsync(async result => await UpdateStatistics(result));        AppEvents.SysProxyChangeRequested
             .AsObservable()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeAsync(async result => await SetListenerType(result));
 
         #endregion AppEvents
 
-    _ = Init();
+        // Refresh the connection status / latency line every 20s so the bottom
+        // bar always shows the most recent state, even when no test is run.
+        _latencyTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                RxSchedulers.MainThreadScheduler.Schedule(async () => await RefreshConnectionDisplay());
+            }
+            catch { }
+        }, null, 5000, 20000);
+
+        _ = Init();
     }
 
     private async Task Init()
@@ -260,11 +278,9 @@ public partial class StatusBarViewModel : MyReactiveObject
     {
         SubscriptionsUpdateRequested.Publish(blProxy);
         await Task.Delay(1000);
-    }
-
-    public async Task RefreshServersBiz()
-    {
-        await RefreshServersMenu();
+    }        public async Task RefreshServersBiz()
+        {
+            await RefreshServersMenu();
 
         //display running server
         var running = await ConfigHandler.GetDefaultServer(_config);
@@ -522,9 +538,51 @@ public partial class StatusBarViewModel : MyReactiveObject
             InboundLanDisplay = $"{ResUI.LabLAN}:{Global.None}";
         }
         await Task.CompletedTask;
-    }
+    }        // Recompute Connection/Latency/Speed displays from the current default server.
+        private async Task RefreshConnectionDisplay()
+        {
+            try
+            {
+                // A core is running when either xray or sing-box is up.
+                var coreUp = AppManager.Instance.IsRunningCore(ECoreType.Xray) ||
+                             AppManager.Instance.IsRunningCore(ECoreType.sing_box);
 
-    public async Task UpdateStatistics(ServerSpeedItem update)
+                if (!coreUp)
+                {
+                    ConnectionDisplay = "未连接";
+                    LatencyDisplay = string.Empty;
+                    StatusSpeedDisplay = string.Empty;
+                    return;
+                }
+
+                ConnectionDisplay = "已连接";
+
+                // Read the last stored latency for the current default server.
+                var profileExs = await ProfileExManager.Instance.GetProfileExs();
+                var delay = profileExs.FirstOrDefault(t => t.IndexId == _config.IndexId)?.Delay ?? 0;
+                LatencyDisplay = delay > 0 ? $" · {delay}ms" : string.Empty;
+
+                // Compact the speed string already computed by UpdateStatistics
+                // ("[x]: ↑..s ↓..s" → "↑..s ↓..s") so the bottom bar stays tight.
+                StatusSpeedDisplay = CompactSpeed(SpeedProxyDisplay);
+            }
+            catch { }
+        }
+
+        // Reduce "[x]: ↑2 MB/s ↓1 MB/s" down to "↑2 MB/s ↓1 MB/s" for a tight bottom bar.
+        private static string CompactSpeed(string? raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return string.Empty;
+            var up = System.Text.RegularExpressions.Regex.Match(raw, @"↑([^↓↑]+)");
+            var down = System.Text.RegularExpressions.Regex.Match(raw, @"↓([^↓↑]+)");
+            if (up.Success && down.Success)
+            {
+                return $"↑{up.Groups[1].Value.Trim()} ↓{down.Groups[1].Value.Trim()}";
+            }
+            return raw;
+        }
+
+        public async Task UpdateStatistics(ServerSpeedItem update)
     {
         if (!_config.GuiItem.DisplayRealTimeSpeed)
         {

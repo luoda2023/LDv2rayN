@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Windows;
 using v2rayN.Manager;
 
 namespace v2rayN.Views;
@@ -55,6 +57,10 @@ public partial class StatusBarView
             this.OneWayBind(ViewModel, vm => vm.RunningInfoDisplay, v => v.txtRunningInfoDisplay.Text).DisposeWith(disposables);
             this.OneWayBind(ViewModel, vm => vm.SpeedProxyDisplay, v => v.txtSpeedProxyDisplay.Text).DisposeWith(disposables);
             this.OneWayBind(ViewModel, vm => vm.SpeedDirectDisplay, v => v.txtSpeedDirectDisplay.Text).DisposeWith(disposables);
+            // New bottom bar (right of the routing combo): connection state, latency, speed.
+            this.OneWayBind(ViewModel, vm => vm.ConnectionDisplay, v => v.txtConnectionDisplay.Text).DisposeWith(disposables);
+            this.OneWayBind(ViewModel, vm => vm.LatencyDisplay, v => v.txtLatencyDisplay.Text).DisposeWith(disposables);
+            this.OneWayBind(ViewModel, vm => vm.StatusSpeedDisplay, v => v.txtStatusSpeedDisplay.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.EnableTun, v => v.togEnableTun.IsChecked).DisposeWith(disposables);
 
             this.Bind(ViewModel, vm => vm.SystemProxySelected, v => v.cmbSystemProxy.SelectedIndex).DisposeWith(disposables);
@@ -95,13 +101,40 @@ public partial class StatusBarView
     private void RefreshIcon()
     {
         Application.Current.MainWindow?.Icon = WindowsManager.Instance.GetAppIcon(_config);
-    }
+    }        private async void menuExit_Click(object sender, RoutedEventArgs e)
+        {
+            tbNotify.Dispose();
 
-    private async void menuExit_Click(object sender, RoutedEventArgs e)
-    {
-        tbNotify.Dispose();
-        await AppManager.Instance.AppExitAsync(true);
-    }
+            // 告诉 MainWindow_Closing 别再把本次 close 拦截为“隐藏到托盘”。
+            // 没有这个标志，Application.Current.Shutdown() 会被 e.Cancel = true 拦下，进程会永远残留。
+            ExitManager.ForceExit = true;
+
+            // 5 秒看门狗：如果下面的清理链路 (ShutdownRequested -> Application.Current.Shutdown -> MainWindow Closing 拦截)
+            // 因任何原因卡住，则强制结束进程。这是最后防线。
+            var watchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            watchdog.Tick += (_, _) =>
+            {
+                try
+                {
+                    if (Process.GetCurrentProcess().HasExited) return;
+                    Process.GetCurrentProcess().Kill();
+                }
+                catch { }
+            };
+            watchdog.Start();
+
+            try
+            {
+                await AppManager.Instance.AppExitAsync(false);
+            }
+            catch { }
+
+            // 直接触发 WPF Shutdown，而不是靠 AppExitAsync 内部发 ShutdownRequested 事件走 MainWindow 的订阅。
+            // MainWindow_Closing 会 e.Cancel = true 拦截关窗（隐藏到托盘），Application.Current.Shutdown 会绕开它。
+            try { Application.Current.Shutdown(); } catch { }
+
+            watchdog.Stop();
+        }
 
     private void txtRunningInfoDisplay_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {

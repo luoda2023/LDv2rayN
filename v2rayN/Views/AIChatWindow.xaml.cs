@@ -164,6 +164,9 @@ public partial class AIChatWindow : Window
         if (_vm.IsProcessing) return;
         var text = txtInput.Text;
         if (string.IsNullOrWhiteSpace(text)) return;
+        // Explicitly hand the text to the VM so the user's message is always
+        // appended even if the two-way binding has not fired yet.
+        _vm.ChatInput = text;
         await _vm.AnalyzeUrlAsync();
         ScrollToEnd();
     }

@@ -454,7 +454,7 @@
                 <Ellipse x:Name="aiProgressRing"
                          Width="52" Height="52"
                          StrokeThickness="3"
-                         Stroke="#FF6C63FF"
+                         Stroke="{DynamicResource MaterialDesignPrimary}"
                          Fill="Transparent"
                          Visibility="Collapsed"
                          RenderTransformOrigin="0.5,0.5">
@@ -479,9 +479,9 @@
                         Width="44" Height="44"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
-                        Background="#FF1E1E2E"
-                        Foreground="#FF6C63FF"
-                        BorderBrush="#FF3A3A5C"
+                        Background="{DynamicResource MaterialDesignCardBackground}"
+                        Foreground="{DynamicResource MaterialDesignBody}"
+                        BorderBrush="{DynamicResource MaterialDesignDivider}"
                         BorderThickness="1"
                         ToolTip="AI 智能代理助手">
                     <materialDesign:PackIcon Kind="RobotOutline" Width="22" Height="22"/>

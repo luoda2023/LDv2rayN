@@ -528,10 +528,19 @@ public partial class CoreConfigSingboxService
         _coreConfig.dns ??= new();
         _coreConfig.dns.rules ??= [];
         _coreConfig.dns.rules.Clear();
-        _coreConfig.dns.final = Global.SingboxDirectDNSTag;
+        // When ForceDnsThroughProxy is on, the direct-dns server carries a detour
+        // (proxy tunnel) and gets removed above, so pointing final/domain resolver
+        // at it would leave sing-box with a dangling tag and it refuses to start
+        // ("default domain resolver not found: direct-dns-1") => every speedtest
+        // reports 0 latency/speed. Fall back to the bootstrap local-local resolver
+        // which is never detoured and always survives the removal.
+        var finalDnsTag = _coreConfig.dns.servers.Any(s => s.tag == Global.SingboxDirectDNSTag)
+            ? Global.SingboxDirectDNSTag
+            : Global.SingboxLocalDNSTag;
+        _coreConfig.dns.final = finalDnsTag;
         _coreConfig.route.default_domain_resolver = new()
         {
-            server = Global.SingboxDirectDNSTag,
+            server = finalDnsTag,
         };
     }
 

@@ -506,18 +506,26 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
         var isHttpUrl = raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
             || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
-        // Fast path 3: free-form question
+        // Fast path 3: free-form question — always reset IsProcessing so a
+        // follow-up message is never swallowed by a stale busy flag.
         if (!isDirectNodeLink && !isHttpUrl)
         {
-            AddMessage(AIChatRole.User, $"💬 {raw}");
-            var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
-            if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+            try
             {
-                AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
-                return;
+                AddMessage(AIChatRole.User, $"💬 {raw}");
+                var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+                if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+                {
+                    AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
+                    return;
+                }
+                var answer = await AskHermesAsync(aiConfig, raw);
+                AddMessage(AIChatRole.AI, answer ?? "❌ AI 未返回任何内容。");
             }
-            var answer = await AskHermesAsync(aiConfig, raw);
-            AddMessage(AIChatRole.AI, answer ?? "❌ AI 未返回任何内容。");
+            finally
+            {
+                IsProcessing = false;
+            }
             return;
         }
 

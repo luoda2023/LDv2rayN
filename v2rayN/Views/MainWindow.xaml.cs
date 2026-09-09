@@ -289,6 +289,11 @@ public partial class MainWindow
         {
             ShowHideWindow(true);
         });
+
+        // Ensure Xray / sing-box cores exist in bin/, downloading from GitHub
+        // if missing. Runs on a background task so it never blocks startup or
+        // the UI (all node tests / latency checks depend on the core being present).
+        ServiceLib.Services.CoreAutoDownloader.CheckAndDownloadXray();
     }
 
     private async Task DelegateSnackMsg(string content)

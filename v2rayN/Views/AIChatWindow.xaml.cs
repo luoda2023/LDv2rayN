@@ -46,6 +46,14 @@ public partial class AIChatWindow : Window
             UpdateBubbleMaxWidth();
             ScrollToEnd();
         };
+
+        // Auto-scroll on every message so the user always sees their own line
+        // appear immediately (and later AI replies), even mid-flight. The
+        // Dispatcher hop lets the new item lay out before scrolling to bottom.
+        _vm.Messages.CollectionChanged += (s, e) =>
+        {
+            Dispatcher.BeginInvoke(ScrollToEnd, System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     private AIChatViewModel _vm;

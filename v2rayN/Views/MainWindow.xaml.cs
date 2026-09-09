@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MaterialDesignThemes.Wpf;
@@ -186,11 +187,20 @@ public partial class MainWindow
         var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
         var dialog = new LeakDetectionWindow { DataContext = vm };
         dialog.ShowDialog(this);
-    };
-            menuPromotion.Click += (s, e) =>
-            {
-                ProcUtils.ProcessStart(Global.Website);
-            };
+    };                menuPromotion.Click += (s, e) =>
+                {
+                    ProcUtils.ProcessStart(Global.Website);
+                };
+                menuAiProductivity.Click += (s, e) =>
+                {
+                    try
+                    {
+                        ProcUtils.ProcessStart("https://download.dicad.cn");
+                    }
+                    catch
+                    {
+                    }
+                };
             this.BindCommand(ViewModel, vm => vm.FullConfigTemplateCmd, v => v.menuFullConfigTemplate).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.GlobalHotkeySettingCmd, v => v.menuGlobalHotkeySetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RebootAsAdminCmd, v => v.menuRebootAsAdmin).DisposeWith(disposables);
@@ -282,6 +292,7 @@ public partial class MainWindow
     }
 
     #region Event
+
 
     private void OnProgramStarted(object state, bool timeout)
     {

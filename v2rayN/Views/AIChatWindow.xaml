@@ -45,31 +45,34 @@
             </Setter>
         </Style>
         
-        <!-- 发送按钮样式 -->
-        <!-- 发送按钮样式：用固定深靛紫色作底(不依赖可能被用户设得很浅的主题主色)，
-             与灰白输入框有强对比，白色箭头平时就清晰可见，而不会只在悬停变深时才能看到。 -->
+        <!-- 发送按钮样式：灰色底跟随主题(MaterialDesignDivider 深浅主题各有合适的灰)，
+             图标用主题文字色，图标严格居中。 -->
         <Style x:Key="SendButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#FF5A4FB7"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="6" 
-                                Padding="8">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                CornerRadius="6">
+                            <ContentPresenter
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                RecognizesAccessKey="False"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#FF4B3FA0"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#FF3D3192"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimaryDark}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -77,27 +80,26 @@
             </Setter>
         </Style>
         
-        <!-- 用户气泡样式：用软件主题主色(MaterialDesignPrimary)，文字恒为白色，深浅主题都清晰且风格统一 -->
-        <!-- 用户气泡样式：用软件主题主色(MaterialDesignPrimary)，文字恒为白色，深浅主题都清晰且风格统一 -->
+        <!-- 用户气泡样式：灰色背景跟随主题(MaterialDesignDivider)，文字用主题文字色，深浅主题都清晰 -->
         <Style x:Key="UserBubble" TargetType="Border">
             <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="Margin" Value="0,2,30,2"/>
+            <Setter Property="Margin" Value="0,2,15,2"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
-            <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
             <Setter Property="CornerRadius" Value="16,16,4,16"/>
         </Style>
         
         <!-- AI气泡样式：Padding 交给内层内容，便于半透明背景铺满整个圆角卡片 -->
         <Style x:Key="AIBubble" TargetType="Border">
-            <Setter Property="Margin" Value="30,2,0,2"/>
+            <Setter Property="Margin" Value="15,2,0,2"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
         </Style>
         
         <!-- 系统消息样式 -->
         <Style x:Key="SystemMessage" TargetType="Border">
-            <Setter Property="Margin" Value="40,2,40,2"/>
+            <Setter Property="Margin" Value="20,2,20,2"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
         </Style>
         
@@ -172,16 +174,17 @@
                                         <TextBlock Grid.Row="0" Text="{Binding Content}" 
                                                    TextWrapping="Wrap"
                                                    FontSize="13"
-                                                   Foreground="White"/>
+                                                   Foreground="{DynamicResource MaterialDesignBody}"/>
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" 
                                                     HorizontalAlignment="Right" Margin="0,3,0,0">
                                             <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}"
                                                        FontSize="10" VerticalAlignment="Center"
-                                                       Foreground="#E6FFFFFF"/>
+                                                       Foreground="{DynamicResource MaterialDesignBody}"
+                                                       Opacity="0.65"/>
                                             <Button Style="{StaticResource ElegantButton}"
                                                     Click="CopyMessage_Click"
                                                     Tag="{Binding Content}"
-                                                    Foreground="#E6FFFFFF">
+                                                    Foreground="{DynamicResource MaterialDesignBody}">
                                                 <TextBlock Text="📋" FontSize="10"/>
                                             </Button>
                                         </StackPanel>
@@ -368,7 +371,9 @@
                 <Button x:Name="btnSend" Grid.Column="3" Margin="8,0,0,0"
                         Style="{StaticResource SendButtonStyle}"
                         Click="BtnSend_Click">
-                    <TextBlock Text="➤" FontSize="16" Foreground="White"/>
+                    <TextBlock Text="➤" FontSize="16"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
                 </Button>
             </Grid>
         </Border>

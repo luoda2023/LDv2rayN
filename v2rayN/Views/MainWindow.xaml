@@ -48,12 +48,9 @@
                         <Menu Margin="0,1" Style="{StaticResource ToolbarMenu}">
                             <MenuItem Padding="{StaticResource MarginLeftRight8}" AutomationProperties.Name="{x:Static resx:ResUI.menuServers}">
                                 <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="Server" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuServers}" />
+                                    <StackPanel Orientation="Horizontal">                    <TextBlock Text="🌐" FontSize="16" Margin="{StaticResource MarginRight8}"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static resx:ResUI.menuServers}" />
                                     </StackPanel>
                                 </MenuItem.Header>
                                 <MenuItem
@@ -139,12 +136,9 @@
                         <Menu Margin="0,1" Style="{StaticResource ToolbarMenu}">
                             <MenuItem Padding="{StaticResource MarginLeftRight8}" AutomationProperties.Name="{x:Static resx:ResUI.menuSubscription}">
                                 <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="BookClockOutline" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuSubscription}" />
+                                    <StackPanel Orientation="Horizontal">                    <TextBlock Text="🔗" FontSize="16" Margin="{StaticResource MarginRight8}"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static resx:ResUI.menuSubscription}" />
                                     </StackPanel>
                                 </MenuItem.Header>
                                 <MenuItem
@@ -174,12 +168,9 @@
                         <Menu Margin="0,1" Style="{StaticResource ToolbarMenu}">
                             <MenuItem Padding="{StaticResource MarginLeftRight8}" AutomationProperties.Name="{x:Static resx:ResUI.menuSetting}">
                                 <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="SettingsOutline" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuSetting}" />
+                                    <StackPanel Orientation="Horizontal">                    <TextBlock Text="⚙️" FontSize="16" Margin="{StaticResource MarginRight8}"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static resx:ResUI.menuSetting}" />
                                     </StackPanel>
                                 </MenuItem.Header>
                                 <MenuItem
@@ -266,19 +257,20 @@
                                 Padding="{StaticResource MarginLeftRight8}"
                                 AutomationProperties.Name="{x:Static resx:ResUI.menuHelp}">
                                 <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="HelpCircleOutline" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuHelp}" />
+                                    <StackPanel Orientation="Horizontal">                    <TextBlock Text="❓" FontSize="16" Margin="{StaticResource MarginRight8}"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static resx:ResUI.menuHelp}" />
                                     </StackPanel>
                                 </MenuItem.Header>
-                                <MenuItem
-                                    x:Name="menuPromotion"
-                                    Height="{StaticResource MenuItemHeight}"
-                                    Header="{x:Static resx:ResUI.menuPromotion}" />
-                            </MenuItem>
+                    <MenuItem
+                        x:Name="menuPromotion"
+                        Height="{StaticResource MenuItemHeight}"
+                        Header="{x:Static resx:ResUI.menuPromotion}" />
+                    <MenuItem
+                        x:Name="menuAiProductivity"
+                        Height="{StaticResource MenuItemHeight}"
+                        Header="AI生产力工具" />
+                </MenuItem>
                         </Menu>
                         <Separator />
                         <Menu Margin="0,1" Style="{StaticResource ToolbarMenu}">
@@ -287,12 +279,9 @@
                                 Padding="{StaticResource MarginLeftRight8}"
                                 AutomationProperties.Name="{x:Static resx:ResUI.menuReload}">
                                 <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="Reload" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuReload}" />
+                                    <StackPanel Orientation="Horizontal">                    <TextBlock Text="🔄" FontSize="16" Margin="{StaticResource MarginRight8}"
+                        VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Static resx:ResUI.menuReload}" />
                                     </StackPanel>
                                 </MenuItem.Header>
                             </MenuItem>
@@ -326,7 +315,7 @@
                     </ToolBar>
                 </ToolBarTray>
 
-                <ContentControl x:Name="contentStatusBarView" DockPanel.Dock="Bottom" />
+        <ContentControl x:Name="contentStatusBarView" DockPanel.Dock="Bottom" />
 
                 <Grid>
                     <Grid x:Name="gridMain" Visibility="Collapsed">
@@ -363,7 +352,7 @@
                             <TabItem x:Name="tabMsgView1">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="MessageTextOutline" />
+                                        <TextBlock Text="💬" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -374,7 +363,7 @@
                             <TabItem x:Name="tabClashProxies1">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecisionOutline" />
+                                        <TextBlock Text="🚦" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -385,7 +374,7 @@
                             <TabItem x:Name="tabClashConnections1">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="LanConnect" />
+                                        <TextBlock Text="🔌" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -404,7 +393,7 @@
                             <TabItem x:Name="tabProfiles2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="Server" />
+                                        <TextBlock Text="🌐" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -415,7 +404,7 @@
                             <TabItem x:Name="tabMsgView2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="MessageTextOutline" />
+                                        <TextBlock Text="💬" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -426,7 +415,7 @@
                             <TabItem x:Name="tabClashProxies2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecisionOutline" />
+                                        <TextBlock Text="🚦" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -437,7 +426,7 @@
                             <TabItem x:Name="tabClashConnections2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="LanConnect" />
+                                        <TextBlock Text="🔌" FontSize="18" HorizontalAlignment="Center" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -448,8 +437,9 @@
             </Grid>
             </DockPanel>
             <materialDesign:Snackbar x:Name="MainSnackbar" MessageQueue="{materialDesign:MessageQueue}" />
-            <!-- Floating AI assistant button with ring progress (bottom-right) -->
-            <Grid HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,12">
+        <!-- Floating AI assistant button with ring progress (bottom-right) -->
+        <!-- 1.5cm @ 96dpi ≈ 57px; 原本 12+12，加上后变成 69+69，即相对右下角上移 1.5cm、左移 1.5cm -->
+        <Grid HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,69,69">
                 <!-- Ring Progress (behind button) -->
                 <Ellipse x:Name="aiProgressRing"
                          Width="52" Height="52"
@@ -484,7 +474,7 @@
                         BorderBrush="{DynamicResource MaterialDesignDivider}"
                         BorderThickness="1"
                         ToolTip="AI 智能代理助手">
-                    <materialDesign:PackIcon Kind="RobotOutline" Width="22" Height="22"/>
+                    <TextBlock Text="🤖" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
             </Grid>
             </Grid>

@@ -11,11 +11,12 @@
         WindowStartupLocation="Manual"
         FontFamily="Microsoft YaHei, Segoe UI, Arial"
         Icon="/Resources/NotifyIcon1.ico"
-        Background="#FF1E1E2E">
+        Background="{DynamicResource MaterialDesignPaper}">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         
+        <!-- 主题跟随的按钮样式 -->
         <Style x:Key="ElegantButton" TargetType="Button">
             <Setter Property="Width" Value="24"/>
             <Setter Property="Height" Value="24"/>
@@ -24,7 +25,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Foreground" Value="#99FFFFFF"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -35,8 +36,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#33FFFFFF"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -44,12 +44,13 @@
             </Setter>
         </Style>
         
+        <!-- 发送按钮样式 -->
         <Style x:Key="SendButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#FF6C63FF"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
@@ -62,15 +63,44 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#FF5A52D5"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimaryDark}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#FF4A42B5"/>
+                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimaryDarker}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        
+        <!-- 用户气泡样式 -->
+        <Style x:Key="UserBubble" TargetType="Border">
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,4,30,4"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
+            <Setter Property="CornerRadius" Value="16,16,4,16"/>
+        </Style>
+        
+        <!-- AI气泡样式 -->
+        <Style x:Key="AIBubble" TargetType="Border">
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="30,4,0,4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}"/>
+            <Setter Property="CornerRadius" Value="16,16,16,4"/>
+        </Style>
+        
+        <!-- 系统消息样式 -->
+        <Style x:Key="SystemMessage" TargetType="Border">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="40,4,40,4"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
+            <Setter Property="CornerRadius" Value="8"/>
         </Style>
     </Window.Resources>
 
@@ -84,14 +114,14 @@
 
         <!-- Header -->
         <Border Grid.Row="0" Padding="16,12" Margin="0,0,0,8"
-                Background="#FF252540"
+                Background="{DynamicResource MaterialDesignCardBackground}"
                 MouseLeftButtonDown="Header_MouseLeftButtonDown">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="🤖" FontSize="20" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock Text="AI 智能助手" FontSize="16" FontWeight="SemiBold" 
                                VerticalAlignment="Center"
-                               Foreground="#FFE0E0E0"/>
+                               Foreground="{DynamicResource MaterialDesignBody}"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button x:Name="btnSettings" Style="{StaticResource ElegantButton}"
@@ -115,7 +145,7 @@
 
         <!-- Chat Messages -->
         <Border Grid.Row="1" Padding="8"
-                Background="#FF2A2A45">
+                Background="{DynamicResource MaterialDesignCardBackground}">
             <ScrollViewer x:Name="scrollChat" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="chatItems" ItemsSource="{Binding Messages}">
@@ -123,11 +153,7 @@
                         <DataTemplate>
                             <Grid Margin="0,6">
                                 <!-- User Message -->
-                                <Border Padding="12,10"
-                                        Margin="0,4,30,4" 
-                                        HorizontalAlignment="Right"
-                                        MaxWidth="320"
-                                        Background="#FF6C63FF"
+                                <Border Style="{StaticResource UserBubble}"
                                         Visibility="{Binding IsUser, Converter={StaticResource BoolToVis}}">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -154,11 +180,7 @@
                                 </Border>
 
                                 <!-- AI Message -->
-                                <Border Padding="12,10"
-                                        Margin="30,4,0,4" 
-                                        HorizontalAlignment="Left"
-                                        MaxWidth="320"
-                                        Background="#FF3A3A5C"
+                                <Border Style="{StaticResource AIBubble}"
                                         Visibility="{Binding IsAI, Converter={StaticResource BoolToVis}}">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -168,15 +190,16 @@
                                         <TextBlock Grid.Row="0" Text="{Binding Content}" 
                                                    TextWrapping="Wrap"
                                                    FontSize="13"
-                                                   Foreground="#FFE8E8E8"/>
+                                                   Foreground="{DynamicResource MaterialDesignBody}"/>
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" 
                                                     HorizontalAlignment="Right" Margin="0,6,0,0">
                                             <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}"
                                                        FontSize="10" VerticalAlignment="Center"
-                                                       Foreground="#99FFFFFF"/>
+                                                       Foreground="{DynamicResource MaterialDesignBody}"/>
                                             <Button Style="{StaticResource ElegantButton}"
                                                     Click="CopyMessage_Click"
-                                                    Tag="{Binding Content}">
+                                                    Tag="{Binding Content}"
+                                                    Foreground="{DynamicResource MaterialDesignBody}">
                                                 <TextBlock Text="📋" FontSize="10"/>
                                             </Button>
                                         </StackPanel>
@@ -184,14 +207,12 @@
                                 </Border>
 
                                 <!-- System Message -->
-                                <Border Padding="10,8" Margin="40,4,40,4"
-                                        HorizontalAlignment="Center"
-                                        Background="#FF252540"
+                                <Border Style="{StaticResource SystemMessage}"
                                         Visibility="{Binding IsSystem, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="{Binding Content}" 
                                                TextWrapping="Wrap"
                                                FontSize="11"
-                                               Foreground="#FF9E9E9E"
+                                               Foreground="{DynamicResource MaterialDesignBody}"
                                                TextAlignment="Center"/>
                                 </Border>
                             </Grid>
@@ -204,19 +225,19 @@
         <!-- Progress bar -->
         <Border Grid.Row="2" Padding="0" Margin="0,8,0,0"
                 Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}"
-                Background="#FF252540">
+                Background="{DynamicResource MaterialDesignCardBackground}">
             <StackPanel Orientation="Vertical" Margin="12,8">
                 <ProgressBar IsIndeterminate="True" Height="3"
-                             Foreground="#FF6C63FF"/>
+                             Foreground="{DynamicResource MaterialDesignPrimary}"/>
                 <TextBlock Text="正在搜索免费节点，请稍候…" FontSize="11" Margin="0,6,0,0"
                            HorizontalAlignment="Center"
-                           Foreground="#FF9E9E9E"/>
+                           Foreground="{DynamicResource MaterialDesignBody}"/>
             </StackPanel>
         </Border>
 
         <!-- Input -->
         <Border Grid.Row="3" Padding="12" Margin="0,4,0,0"
-                Background="#FF252540">
+                Background="{DynamicResource MaterialDesignCardBackground}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -233,9 +254,9 @@
                 </Button>
                 
                 <TextBox x:Name="txtInput" Grid.Column="1" Padding="10,8" FontSize="13"
-                         Background="#FF3A3A5C"
-                         Foreground="White"
-                         BorderBrush="#FF4A4A6A"
+                         Background="{DynamicResource MaterialDesignPaper}"
+                         Foreground="{DynamicResource MaterialDesignBody}"
+                         BorderBrush="{DynamicResource MaterialDesignDivider}"
                          BorderThickness="1"
                          VerticalContentAlignment="Center"
                          KeyDown="TxtInput_KeyDown"/>

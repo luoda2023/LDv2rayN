@@ -46,12 +46,14 @@
         </Style>
         
         <!-- 发送按钮样式 -->
+        <!-- 发送按钮样式：用固定深靛紫色作底(不依赖可能被用户设得很浅的主题主色)，
+             与灰白输入框有强对比，白色箭头平时就清晰可见，而不会只在悬停变深时才能看到。 -->
         <Style x:Key="SendButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="40"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
+            <Setter Property="Background" Value="#FF5A4FB7"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
@@ -64,10 +66,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimaryDark}"/>
+                                <Setter Property="Background" Value="#FF4B3FA0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimaryDarker}"/>
+                                <Setter Property="Background" Value="#FF3D3192"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -76,34 +78,27 @@
         </Style>
         
         <!-- 用户气泡样式：用软件主题主色(MaterialDesignPrimary)，文字恒为白色，深浅主题都清晰且风格统一 -->
+        <!-- 用户气泡样式：用软件主题主色(MaterialDesignPrimary)，文字恒为白色，深浅主题都清晰且风格统一 -->
         <Style x:Key="UserBubble" TargetType="Border">
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="Margin" Value="0,4,30,4"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0,2,30,2"/>
             <Setter Property="HorizontalAlignment" Value="Right"/>
             <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
             <Setter Property="Background" Value="{DynamicResource MaterialDesignPrimary}"/>
             <Setter Property="CornerRadius" Value="16,16,4,16"/>
         </Style>
         
-        <!-- AI气泡样式：在统一柔和灰底上浮起一档的卡片(略亮) + 细边框，避免大块纯白刺眼 -->
+        <!-- AI气泡样式：Padding 交给内层内容，便于半透明背景铺满整个圆角卡片 -->
         <Style x:Key="AIBubble" TargetType="Border">
-            <Setter Property="Padding" Value="12,10"/>
-            <Setter Property="Margin" Value="30,4,0,4"/>
+            <Setter Property="Margin" Value="30,2,0,2"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="MaxWidth" Value="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=BubbleMaxWidth}"/>
-            <Setter Property="Background" Value="{DynamicResource MaterialDesignPaper}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="16,16,16,4"/>
         </Style>
         
         <!-- 系统消息样式 -->
         <Style x:Key="SystemMessage" TargetType="Border">
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="40,4,40,4"/>
+            <Setter Property="Margin" Value="40,2,40,2"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="Background" Value="{DynamicResource MaterialDesignDivider}"/>
-            <Setter Property="CornerRadius" Value="8"/>
         </Style>
         
         <!-- 仓库列表项样式 -->
@@ -165,7 +160,7 @@
                 <ItemsControl x:Name="chatItems" ItemsSource="{Binding Messages}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="0,6">
+                            <Grid Margin="0,3">
                                 <!-- User Message -->
                                 <Border Style="{StaticResource UserBubble}"
                                         Visibility="{Binding IsUser, Converter={StaticResource BoolToVis}}">
@@ -179,14 +174,14 @@
                                                    FontSize="13"
                                                    Foreground="White"/>
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" 
-                                                    HorizontalAlignment="Right" Margin="0,6,0,0">
+                                                    HorizontalAlignment="Right" Margin="0,3,0,0">
                                             <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}"
                                                        FontSize="10" VerticalAlignment="Center"
-                                                       Foreground="#99FFFFFF"/>
+                                                       Foreground="#E6FFFFFF"/>
                                             <Button Style="{StaticResource ElegantButton}"
                                                     Click="CopyMessage_Click"
                                                     Tag="{Binding Content}"
-                                                    Foreground="#99FFFFFF">
+                                                    Foreground="#E6FFFFFF">
                                                 <TextBlock Text="📋" FontSize="10"/>
                                             </Button>
                                         </StackPanel>
@@ -197,35 +192,50 @@
                                 <Border Style="{StaticResource AIBubble}"
                                         Visibility="{Binding IsAI, Converter={StaticResource BoolToVis}}">
                                     <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <views:MarkdownText Grid.Row="0" Text="{Binding Content}" FontSize="13"
-                                                             Foreground="{DynamicResource MaterialDesignBody}"/>
-                                        <StackPanel Grid.Row="1" Orientation="Horizontal" 
-                                                    HorizontalAlignment="Right" Margin="0,6,0,0">
-                                            <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}"
-                                                       FontSize="10" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource MaterialDesignBody}"/>
-                                            <Button Style="{StaticResource ElegantButton}"
-                                                    Click="CopyMessage_Click"
-                                                    Tag="{Binding Content}"
-                                                    Foreground="{DynamicResource MaterialDesignBody}">
-                                                <TextBlock Text="📋" FontSize="10"/>
-                                            </Button>
-                                        </StackPanel>
+                                        <!-- 半透明卡片背景(80%)：透出底层灰得到柔和层次，文字在上层不透明不受影响 -->
+                                        <Border Background="{DynamicResource MaterialDesignPaper}"
+                                                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                                                BorderThickness="1"
+                                                CornerRadius="16,16,16,4"
+                                                Opacity="0.8"/>
+                                        <Grid Margin="12,8">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <views:MarkdownText Grid.Row="0" Text="{Binding Content}" FontSize="13"
+                                                                 Foreground="{DynamicResource MaterialDesignBody}"/>
+                                            <StackPanel Grid.Row="1" Orientation="Horizontal" 
+                                                        HorizontalAlignment="Right" Margin="0,3,0,0">
+                                                <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm}'}"
+                                                           FontSize="10" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource MaterialDesignBody}"/>
+                                                <Button Style="{StaticResource ElegantButton}"
+                                                        Click="CopyMessage_Click"
+                                                        Tag="{Binding Content}"
+                                                        Foreground="{DynamicResource MaterialDesignBody}">
+                                                    <TextBlock Text="📋" FontSize="10"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
                                     </Grid>
                                 </Border>
 
                                 <!-- System Message -->
                                 <Border Style="{StaticResource SystemMessage}"
                                         Visibility="{Binding IsSystem, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="{Binding Content}" 
-                                               TextWrapping="Wrap"
-                                               FontSize="11"
-                                               Foreground="{DynamicResource MaterialDesignBody}"
-                                               TextAlignment="Center"/>
+                                    <Grid>
+                                        <!-- 半透明灰条(80%)：透出底层，柔和 -->
+                                        <Border Background="{DynamicResource MaterialDesignDivider}"
+                                                CornerRadius="8"
+                                                Opacity="0.8"/>
+                                        <TextBlock Text="{Binding Content}" 
+                                                   TextWrapping="Wrap"
+                                                   Margin="10,6"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                                   TextAlignment="Center"/>
+                                    </Grid>
                                 </Border>
                             </Grid>
                         </DataTemplate>

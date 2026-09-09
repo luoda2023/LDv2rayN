@@ -1,117 +1,144 @@
-using System.Collections.Specialized;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using ServiceLib.ViewModels;
 
 namespace v2rayN.Views;
 
+/// <summary>
+/// Floating AI chat panel. Borderless, top-most, positioned at the main window's bottom-right.
+/// </summary>
 public partial class AIChatWindow : Window
 {
-    private AIChatViewModel ViewModel { get; set; }
+    /// <summary>
+    /// Effective max width for chat bubbles — 3/4 of the actual window width.
+    /// Updates on SizeChanged so bubbles resize as the window is resized.
+    /// </summary>
+    public static readonly DependencyProperty BubbleMaxWidthProperty =
+        DependencyProperty.Register(
+            nameof(BubbleMaxWidth),
+            typeof(double),
+            typeof(AIChatWindow),
+            new PropertyMetadata(285.0));
+
+    public double BubbleMaxWidth
+    {
+        get => (double)GetValue(BubbleMaxWidthProperty);
+        set => SetValue(BubbleMaxWidthProperty, value);
+    }
 
     public AIChatWindow()
     {
         InitializeComponent();
-        ViewModel = new AIChatViewModel();
-        DataContext = ViewModel;
 
-        // Auto-scroll when new messages are added
-        ViewModel.Messages.CollectionChanged += Messages_CollectionChanged;
+        _vm = new AIChatViewModel();
+        DataContext = _vm;
 
-        Loaded += AIChatWindow_Loaded;
-    }
-
-    private void AIChatWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-        txtTargetGroup.Text = ViewModel.TargetGroup;
-        txtMaxNodes.Text = ViewModel.MaxNodes.ToString();
-        chkAutoTest.IsChecked = ViewModel.AutoTest;
-        chkAutoCrawl.IsChecked = ViewModel.AutoCrawlEnabled;
-        txtCrawlInterval.Text = ViewModel.AutoCrawlIntervalMinutes.ToString();
-
-        chkAutoCrawl.Checked += (_, _) => ApplyAutoCrawl();
-        chkAutoCrawl.Unchecked += (_, _) => ApplyAutoCrawl();
-
-        // Update UI when processing state changes
-        ViewModel.PropertyChanged += (_, args) =>
+        // Bind txtInput.Text to VM.ChatInput (TwoWay, delay so user can type freely).
+        txtInput.SetBinding(TextBox.TextProperty, new System.Windows.Data.Binding(nameof(AIChatViewModel.ChatInput))
         {
-            Dispatcher.Invoke(() =>
-            {
-                if (args.PropertyName == nameof(AIChatViewModel.IsProcessing))
-                {
-                    btnAnalyzeUrl.IsEnabled = !ViewModel.IsProcessing;
-                    btnAutoSearch.IsEnabled = !ViewModel.IsProcessing;
-                    btnAnalyzeUrl.Content = ViewModel.IsProcessing ? "⏳ 处理中..." : "🔍 分析链接";
-                    btnAutoSearch.Content = ViewModel.IsProcessing ? "⏳ 搜索中..." : "🤖 自动搜索";
-                }
-            });
+            Mode = System.Windows.Data.BindingMode.TwoWay,
+            UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged
+        });
+
+        txtInput.KeyDown += TxtInput_KeyDown;
+        SizeChanged += (s, e) =>
+        {
+            UpdateBubbleMaxWidth();
+            ScrollToEnd();
         };
-
-        // Focus input
-        txtInput.Focus();
     }
 
-    private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private AIChatViewModel _vm;
+
+    protected override void OnSourceInitialized(EventArgs e)
     {
-        if (e.Action == NotifyCollectionChangedAction.Add)
+        base.OnSourceInitialized(e);
+        PositionNearMainWindow();
+        UpdateBubbleMaxWidth();
+        ScrollToEnd();
+    }
+
+    private void UpdateBubbleMaxWidth() => BubbleMaxWidth = ActualWidth * 0.75;
+
+    private void PositionNearMainWindow()
+    {
+        if (Owner is not null)
         {
-            Dispatcher.Invoke(() =>
-            {
-                scrollChat.ScrollToEnd();
-            });
+            var margin = 20.0;
+            Left = Owner.Left + Owner.Width - Width - margin;
+            Top = Owner.Top + Owner.Height - Height - margin;
+            return;
+        }
+
+        var main = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w is not AIChatWindow);
+        if (main is not null)
+        {
+            var margin = 20.0;
+            Left = main.Left + main.Width - Width - margin;
+            Top = main.Top + main.Height - Height - margin;
+        }
+        else
+        {
+            Left = SystemParameters.PrimaryScreenWidth - Width - 40;
+            Top = SystemParameters.PrimaryScreenHeight - Height - 120;
         }
     }
+
+    private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            Hide();
+        }
+        else if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
+
+ private void BtnMinimize_Click(object sender, RoutedEventArgs e) => Hide();
+ private void BtnClose_Click(object sender, RoutedEventArgs e) => Hide();
+
+ private void BtnSettings_Click(object sender, RoutedEventArgs e)
+ {
+ // Open the same AISettingWindow the top menu uses. Bring this dialog
+ // forward after the modal returns so the AI dialog stays on top.
+ try
+ {
+ var vm = new ServiceLib.ViewModels.AISettingViewModel();
+ var dialog = new AISettingWindow { DataContext = vm };
+ dialog.ShowDialog();
+ Activate();
+ }
+ catch (Exception ex)
+ {
+ Logging.SaveLog("AIChatWindow.BtnSettings", ex);
+ }
+ }
 
     private void TxtInput_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter && !ViewModel.IsProcessing)
+        if (e.Key == Key.Enter && !txtInput.AcceptsReturn)
         {
-            ViewModel.ChatInput = txtInput.Text;
-            _ = ViewModel.AnalyzeUrlAsync();
-            txtInput.Text = string.Empty;
             e.Handled = true;
+            BtnSend_Click(this, e);
         }
     }
 
-    private async void BtnAnalyzeUrl_Click(object sender, RoutedEventArgs e)
+    private async void BtnSend_Click(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.IsProcessing) return;
-
-        ViewModel.ChatInput = txtInput.Text;
-        ViewModel.TargetGroup = txtTargetGroup.Text;
-        if (int.TryParse(txtMaxNodes.Text, out var maxNodes))
-        {
-            ViewModel.MaxNodes = maxNodes;
-        }
-        ViewModel.AutoTest = chkAutoTest.IsChecked == true;
-
-        await ViewModel.AnalyzeUrlAsync();
-        txtInput.Text = string.Empty;
-        txtInput.Focus();
+        if (_vm.IsProcessing) return;
+        var text = txtInput.Text;
+        if (string.IsNullOrWhiteSpace(text)) return;
+        await _vm.AnalyzeUrlAsync();
+        ScrollToEnd();
     }
 
-    private async void BtnAutoSearch_Click(object sender, RoutedEventArgs e)
+    private void ScrollToEnd()
     {
-        if (ViewModel.IsProcessing) return;
-
-        ViewModel.TargetGroup = txtTargetGroup.Text;
-        if (int.TryParse(txtMaxNodes.Text, out var maxNodes))
-        {
-            ViewModel.MaxNodes = maxNodes;
-        }
-        ViewModel.AutoTest = chkAutoTest.IsChecked == true;
-
-        await ViewModel.AutoSearchAsync();
-        txtInput.Focus();
-    }
-
-    private void ApplyAutoCrawl()
-    {
-        ViewModel.AutoCrawlEnabled = chkAutoCrawl.IsChecked == true;
-        if (int.TryParse(txtCrawlInterval.Text, out var interval))
-        {
-            ViewModel.AutoCrawlIntervalMinutes = interval;
-        }
-        ViewModel.ToggleAutoCrawl();
+        if (chatItems?.Items is null) return;
+        var count = chatItems.Items.Count;
+        if (count == 0) return;
+        scrollChat.ScrollToBottom();
     }
 }

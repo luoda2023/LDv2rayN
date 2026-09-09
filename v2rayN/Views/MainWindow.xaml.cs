@@ -11,6 +11,7 @@ public partial class MainWindow
     private static Config _config;
     private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
     private BackupAndRestoreView? _backupAndRestoreView;
+    private AIChatWindow? _aiChatWindow;
 
     public MainWindow()
     {
@@ -60,37 +61,113 @@ public partial class MainWindow
             //setting
             this.BindCommand(ViewModel, vm => vm.OptionSettingCmd, v => v.menuOptionSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RoutingSettingCmd, v => v.menuRoutingSetting).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);
-        menuAISetting.Click += async (s, e) =>
+            this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);        // 智能获取：API 有效时后台启动调度器，不再弹设置窗口；否则打开设置 menuAISetting.Click += (s, e) =>
+ {
+ // 设置入口：无论配置是否有效，都打开设置窗口，让用户能看到/修改
+ // API 地址、密钥、模型、分组、间隔等。之前改成"API 有效就不弹窗"
+ // 导致用户找不到配置入口。
+ try
+ {
+ var vm = new ServiceLib.ViewModels.AISettingViewModel();
+ var dialog = new AISettingWindow { DataContext = vm };
+ dialog.ShowDialog(this);
+
+ // 从设置窗口回来后，如果配置有效则后台启动调度器
+ var config = AppManager.Instance.Config;
+ var ai = config.AIConfigItem;
+ if (ai is { Enabled: true }
+ && !string.IsNullOrWhiteSpace(ai.ApiUrl)
+ && !string.IsNullOrWhiteSpace(ai.ApiKey)
+ && !string.IsNullOrWhiteSpace(ai.ModelId))
+ {
+ _ = ServiceLib.Handler.ConfigHandler.SaveConfig(config);
+ ServiceLib.Services.AISchedulerService.Restart(config);
+ }
+ }
+ catch (Exception ex)
+ {
+                System.Diagnostics.Debug.WriteLine($"menuAISetting failed: {ex}");            MessageBox.Show(
+                $"AI 启动失败：{ex.Message}",
+                "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    };
+    // 一键安全配置：把 TUN / Kill Switch / IPv6 防泄露 / DNS 走代理 / 全局代理
+    // 打包成预设一次性应用，避免用户在多处设置里漏配导致真实 IP 泄露。
+    menuSecurityPreset.Click += async (s, e) =>
+    {
+        try
         {
+            var result = MessageBox.Show(
+                "将应用以下安全预设：\n\n" +
+                "• 开启 TUN 模式（全流量走代理）\n" +
+                "• 开启 Kill Switch（断线即阻断全部流量）\n" +
+                "• 开启严格路由\n" +
+                "• 关闭 IPv6（防止 IPv6 泄露真实 IP）\n" +
+                "• 系统代理设为全局代理\n\n" +
+                "应用后会重启核心服务，确定继续？",
+                "🛡️ 一键安全配置", MessageBoxButton.OKCancel, MessageBoxImage.Information);
+            if (result != MessageBoxResult.OK) return;
+
+            var config = AppManager.Instance.Config;
+
+            // TUN + Kill Switch + StrictRoute + IPv6 off（IPv6 泄露是真实 IP 泄露的常见途径）
+            config.TunModeItem.EnableTun = true;
+            config.TunModeItem.AutoRoute = true;
+            config.TunModeItem.StrictRoute = true;
+            config.TunModeItem.EnableKillSwitch = true;
+            config.TunModeItem.EnableIPv6Address = false;
+
+            // 全局代理（ForcedChange = 系统代理指向本地代理端口）
+            config.SystemProxyItem.SysProxyType = ServiceLib.Enums.ESysProxyType.ForcedChange;
+            config.SystemProxyItem.NotProxyLocalAddress = true;
+
+            _ = await ServiceLib.Handler.ConfigHandler.SaveConfig(config);
+
+            // 重启核心让 TUN/KillSwitch 生效
             try
             {
-                var vm = new ServiceLib.ViewModels.AISettingViewModel();
-                var dialog = new AISettingWindow { DataContext = vm };
-                dialog.ShowDialog(this);
+                await CoreManager.Instance.CoreStop();
+                await CoreManager.Instance.LoadCore(null, null);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"menuAISetting failed: {ex}");
-                MessageBox.Show(
-                    $"AI 设置启动失败：{ex.Message}",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Logging.SaveLog($"SecurityPreset restart core failed: {ex.Message}");
             }
-            await Task.CompletedTask;
-        };
-            menuAIChat.Click += async (s, e) =>
-            {
-                var dialog = new AIChatWindow();
-                dialog.ShowDialog(this);
-                await Task.CompletedTask;
-            };
-            menuLeakDetection.Click += async (s, e) =>
-            {
-                var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
-                var dialog = new LeakDetectionWindow { DataContext = vm };
-                dialog.ShowDialog(this);
-                await Task.CompletedTask;
-            };
+
+            MessageBox.Show(
+                "✅ 安全预设已应用！\n\n" +
+                "TUN 模式 + Kill Switch + 严格路由已开启，IPv6 已关闭，系统代理已设为全局。\n\n" +
+                "建议到「设置 → Leak Detection」跑一次泄露检测确认真实 IP 已隐藏。",
+                "🛡️ 一键安全配置", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog($"SecurityPreset failed: {ex}");
+            MessageBox.Show($"安全配置失败：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    };
+    menuAILog.Click += (s, e) =>
+    {
+        var dialog = new AILogWindow();
+        dialog.ShowDialog(this);
+    };
+    // Floating panel: Show() instead of ShowDialog() so the main window stays usable.
+    // Shared between the menu item, the floating bottom-right button, and the tray
+    // icon left-click — only one instance.
+    var toggleAi = ToggleAiChatPanel;
+    menuAIChat.Click += (s, e) => toggleAi();
+    btnAiAssistant.Click += (s, e) => toggleAi();
+
+    // Tray icon left-click opens the AI assistant (plus shows the main window).
+    ViewModel.StatusBarViewModel?.OpenAiChatRequested.AsObservable()
+        .Subscribe(_ => toggleAi())
+        .DisposeWith(disposables);
+    menuLeakDetection.Click += (s, e) =>
+    {
+        var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
+        var dialog = new LeakDetectionWindow { DataContext = vm };
+        dialog.ShowDialog(this);
+    };
             menuPromotion.Click += (s, e) =>
             {
                 ProcUtils.ProcessStart(Global.Website);
@@ -305,6 +382,45 @@ public partial class MainWindow
         DialogHost.Show(_backupAndRestoreView, "RootDialog");
     }
 
+    /// <summary>
+    /// Toggle the floating AI assistant chat panel. Keeps a single instance alive
+    /// so reopening it doesn't recreate the ViewModel (and lose chat history).
+    /// </summary>
+    private void ToggleAiChatPanel()
+    {
+        if (_aiChatWindow is { IsVisible: true })
+        {
+            _aiChatWindow.Hide();
+            return;
+        }
+
+        if (_aiChatWindow == null)
+        {
+            try
+            {
+                _aiChatWindow = new AIChatWindow { Owner = this };
+                _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"AIChatWindow creation failed: {ex}");
+                MessageBox.Show(
+                    $"AI 对话框创建失败：{ex.Message}",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
+
+        // Re-anchor to the bottom-right of the main window every time.
+        double anchorRight = Left + Width - _aiChatWindow.Width - 16;
+        double anchorBottom = Top + Height - _aiChatWindow.Height - 16;
+        _aiChatWindow.Left = Math.Max(anchorRight, 0);
+        _aiChatWindow.Top = Math.Max(anchorBottom, 0);
+
+        _aiChatWindow.Show();
+        _aiChatWindow.Activate();
+    }
+
     #endregion Event
 
     #region UI
@@ -327,17 +443,31 @@ public partial class MainWindow
             this?.Hide();
         }
         AppManager.Instance.ShowInTaskbar = bl;
-    }
+    } protected override void OnLoaded(object? sender, RoutedEventArgs e)
+ {
+ base.OnLoaded(sender, e);
+ if (_config.UiItem.AutoHideStartup)
+ {
+ ShowHideWindow(false);
+ }
+ RestoreUI();
 
-    protected override void OnLoaded(object? sender, RoutedEventArgs e)
-    {
-        base.OnLoaded(sender, e);
-        if (_config.UiItem.AutoHideStartup)
-        {
-            ShowHideWindow(false);
-        }
-        RestoreUI();
-    }
+ // 预创建 AI 对话框（延迟 1.5s，等主窗口稳定），用户点击时秒开。
+ // WPF 窗口首次创建要加载 XAML + MaterialDesign 样式，是最慢的一步。
+ Dispatcher.BeginInvoke(new Action(() =>
+ {
+ if (_aiChatWindow != null) return;
+ try
+ {
+ _aiChatWindow = new AIChatWindow { Owner = this };
+ _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
+ }
+ catch (Exception ex)
+ {
+ Logging.SaveLog($"AIChatWindow prewarm failed: {ex}");
+ }
+ }), System.Windows.Threading.DispatcherPriority.Background);
+ }
 
     private void RestoreUI()
     {

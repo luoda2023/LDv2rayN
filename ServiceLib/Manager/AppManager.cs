@@ -109,6 +109,9 @@ public sealed class AppManager
                 await MigrateProfileExtra();
             }).Wait();
 
+            // Auto-download Xray-core if missing — runs on a background task.
+            CoreAutoDownloader.CheckAndDownloadXray();
+
             // One-shot migration: default-enable AI auto-crawl for users whose
             // saved config pre-dates this change (or has AIConfigItem missing).
             var aiCfg = _config.AIConfigItem;

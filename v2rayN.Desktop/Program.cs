@@ -58,12 +58,8 @@ internal class Program
     {
         var builder = AppBuilder.Configure<App>()
            .UsePlatformDetect()
-           //.WithInterFont()
-           .WithFontByDefault()
-#if DEBUG
-           .WithDeveloperTools()
-#endif
-           .LogToTrace()
+           //.WithInterFont().WithFontByDefault()
+ .LogToTrace()
            .UseReactiveUI(_ => { });
 
         if (OperatingSystem.IsMacOS())

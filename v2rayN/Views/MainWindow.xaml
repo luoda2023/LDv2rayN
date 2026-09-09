@@ -189,19 +189,26 @@
                                 <MenuItem
                                     x:Name="menuRoutingSetting"
                                     Height="{StaticResource MenuItemHeight}"
-                                    Header="{x:Static resx:ResUI.menuRoutingSetting}" />
-                                <MenuItem
-                                    x:Name="menuDNSSetting"
-                                    Height="{StaticResource MenuItemHeight}"
-                                    Header="{x:Static resx:ResUI.menuDNSSetting}" />
-                                <MenuItem
-                                    x:Name="menuAISetting"
-                                    Height="{StaticResource MenuItemHeight}"
-                                    Header="🤖 AI智能获取设置" />
-                                <MenuItem
-                                    x:Name="menuAIChat"
-                                    Height="{StaticResource MenuItemHeight}"
-                                    Header="💬 AI代理助手" />
+                                    Header="{x:Static resx:ResUI.menuRoutingSetting}" /> <MenuItem
+ x:Name="menuDNSSetting"
+ Height="{StaticResource MenuItemHeight}"
+ Header="{x:Static resx:ResUI.menuDNSSetting}" />
+ <MenuItem
+ x:Name="menuSecurityPreset"
+ Height="{StaticResource MenuItemHeight}"
+ Header="🛡️ 一键安全配置" />
+ <MenuItem
+ x:Name="menuAISetting"
+ Height="{StaticResource MenuItemHeight}"
+ Header="🤖 AI智能获取" />
+        <MenuItem
+            x:Name="menuAILog"
+            Height="{StaticResource MenuItemHeight}"
+            Header="📋 查看 AI 日志" />
+        <MenuItem
+            x:Name="menuAIChat"
+            Height="{StaticResource MenuItemHeight}"
+            Header="💬 AI代理助手" />
                                 <MenuItem
                                     x:Name="menuLeakDetection"
                                     Height="{StaticResource MenuItemHeight}"
@@ -436,13 +443,24 @@
                                             Style="{StaticResource ToolbarTextBlock}"
                                             Text="{x:Static resx:ResUI.TbConnections}" />
                                     </StackPanel>
-                                </TabItem.Header>
-                            </TabItem>
-                        </TabControl>
-                    </Grid>
-                    <materialDesign:Snackbar x:Name="MainSnackbar" MessageQueue="{materialDesign:MessageQueue}" />
-                </Grid>
+                                </TabItem.Header>            </TabItem> </TabControl>
+            </Grid>
+            </Grid>
             </DockPanel>
-        </Grid>
-    </materialDesign:DialogHost>
+            <materialDesign:Snackbar x:Name="MainSnackbar" MessageQueue="{materialDesign:MessageQueue}" />
+            <!-- Floating AI assistant button (bottom-right) --> <Button x:Name="btnAiAssistant"
+ Width="44" Height="44"
+ HorizontalAlignment="Right" VerticalAlignment="Bottom"
+ Margin="0,0,12,12"
+ Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
+ Background="{DynamicResource MaterialDesignCardBackground}"
+ Foreground="{DynamicResource MaterialDesignBody}"
+ BorderBrush="{DynamicResource MaterialDesignDivider}"
+ BorderThickness="1"
+ ToolTip="AI 智能代理助手"
+>
+ <materialDesign:PackIcon Kind="RobotOutline" Width="22" Height="22"
+ Foreground="{DynamicResource MaterialDesignBody}" />            </Button>
+            </Grid>
+            </materialDesign:DialogHost>
 </base:WindowBase>

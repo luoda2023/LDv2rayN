@@ -7,6 +7,7 @@ public partial class StatusBarViewModel : MyReactiveObject
     public Interaction<RxVoid, RxVoid> DispatcherRefreshIconInteraction { get; } = new();
     public EventChannel<bool> SubscriptionsUpdateRequested { get; } = new();
     public EventChannel<bool?> ShowHideWindowRequested { get; } = new();
+ public EventChannel<RxVoid> OpenAiChatRequested { get; } = new();
 
     private static readonly Lazy<StatusBarViewModel> _instance = new(() => new());
     public static StatusBarViewModel Instance => _instance.Value;
@@ -145,7 +146,10 @@ public partial class StatusBarViewModel : MyReactiveObject
  });
  NotifyLeftClickCmd = ReactiveCommand.CreateFromTask(async () =>
  {
- ShowHideWindowRequested.Publish(null);
+ // Tray left-click: bring the main window forward AND open the AI
+ // assistant dialog — this is what users expect from the tray icon.
+ ShowHideWindowRequested.Publish(true);
+ OpenAiChatRequested.Publish(RxVoid.Default);
  await Task.CompletedTask;
  });
  ShowWindowCmd = ReactiveCommand.CreateFromTask(async () =>
@@ -311,35 +315,50 @@ public partial class StatusBarViewModel : MyReactiveObject
             return;
         }
         SetDefaultServerRequested.Publish(SelectedServer.ID);
-    }
+    } public async Task<AvailabilityCheckResult?> TestServerAvailability()
+ {
+ var item = await ConfigHandler.GetDefaultServer(_config);
+ if (item == null)
+ {
+ await TestServerAvailabilitySub("❌ 未选择节点，无法测试");
+ return null;
+ }
 
-    public async Task<AvailabilityCheckResult?> TestServerAvailability()
-    {
-        var item = await ConfigHandler.GetDefaultServer(_config);
-        if (item == null)
-        {
-            return null;
-        }
+ // 核心未运行时，代理端口没有监听，测出来必然是 -1。先给明确提示。
+ if (item.CoreType is { } coreType && !AppManager.Instance.IsRunningCore(coreType))
+ {
+ var msg0 = $"⚠️ 核心未运行，无法测延迟\n当前节点: {item.Remarks}";
+ NoticeManager.Instance.SendMessageEx(msg0);
+ await TestServerAvailabilitySub(msg0);
+ return null;
+ }
 
-        await TestServerAvailabilitySub(ResUI.Speedtesting);
+ await TestServerAvailabilitySub(ResUI.Speedtesting);
 
-        var result = await Task.Run(ConnectionHandler.RunAvailabilityCheck);
-        var msg = string.Format(ResUI.TestMeOutput, result.Time, result.Ip);
+ var result = await Task.Run(ConnectionHandler.RunAvailabilityCheck);
 
-        var ip = result.GetValidIp();
-        if (ip.IsNotEmpty())
-        {
-            ProfileExManager.Instance.SetTestIpInfo(item.IndexId, ip);
-        }
-        if (result.Time > 0)
-        {
-            ProfileExManager.Instance.SetTestDelay(item.IndexId, result.Time);
-        }
+ var ip = result.GetValidIp();
+ if (ip.IsNotEmpty())
+ {
+ ProfileExManager.Instance.SetTestIpInfo(item.IndexId, ip);
+ }
 
-        NoticeManager.Instance.SendMessageEx(msg);
-        await TestServerAvailabilitySub(msg);
-        return result;
-    }
+ string msg;
+ if (result.Time > 0)
+ {
+ ProfileExManager.Instance.SetTestDelay(item.IndexId, result.Time);
+ msg = string.Format(ResUI.TestMeOutput, result.Time, result.Ip);
+ }
+ else
+ {
+ // 核心在跑但延迟测不出来 = 当前节点连不通或代理链路断了。
+ msg = $"❌ 节点不可达（{result.Time} ms）\n当前节点: {item.Remarks}\n请尝试切换到其他节点后重测";
+ }
+
+ NoticeManager.Instance.SendMessageEx(msg);
+ await TestServerAvailabilitySub(msg);
+ return result;
+ }
 
     private async Task TestServerAvailabilitySub(string msg)
     {

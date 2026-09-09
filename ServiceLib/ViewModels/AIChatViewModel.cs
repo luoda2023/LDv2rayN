@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
+using System.Text.Json;
 using ServiceLib.Models;
+using ServiceLib.Services.AiApi;
 
 namespace ServiceLib.ViewModels;
 
@@ -40,9 +42,17 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
 
 📋 **批量导入** — 直接粘贴一批节点链接（每行一个），我会自动识别、逐个验证后导入到指定分组。支持Base64编码的订阅内容。
 
-🔍 **自动搜索** — 我会自动在GitHub上搜索最新的免费VPN节点，逐个验证后添加到分组。
+🔍 **GitHub 自动搜索** — 点击「自动搜索」或输入 `搜索`，我会在 GitHub 上搜索最新免费节点仓库，下载订阅、解析节点、测活后把通过的导入分组。
 
-💡 **使用方法**：在下方输入框粘贴链接或节点后按回车，或点击「分析链接」按钮。点击「自动搜索」开始全自动搜索。
+🗣️ **自由问答** — 任何与VPN/代理/网络相关的问题都可以直接问我（由 hermesAPI 回答）。
+
+🎛️ **对话式控制** — 直接在对话框输入关键词就能操作程序：
+- 「列」 / 「分组」 / 「状态」 — 查询
+- 「切换 xxx」 — 切换分组
+- 「删除 xxx」 / 「添加 <链接>」 / 「测试 <链接>」
+- 「代理 clear」 — 关闭系统代理
+
+💡 **使用方法**：在下方输入框粘贴链接、节点或问题后按回车。
 
 支持的节点协议：`vmess://` `vless://` `trojan://` `ss://` `hy2://` `tuic://`");
     }
@@ -103,9 +113,42 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             return;
         }
 
-        var url = ChatInput.Trim();
+        var raw = ChatInput.Trim();
         ChatInput = string.Empty;
-        IsProcessing = true; AddMessage(AIChatRole.User, $"🔗 分析这个内容：{(url.Length > 200 ? url[..200] + "..." : url)}");
+        IsProcessing = true; // Fast path 1: local command router — lets the user drive the app through chat
+ // without any external LLM. If a command matches, execute and return.
+ var cmd = TryMatchLocalCommand(raw);
+ if (cmd is not null)
+ {
+ AddMessage(AIChatRole.User, $"💬 {raw}");
+ try { await ExecuteLocalCommandAsync(cmd, raw); }
+ finally { IsProcessing = false; }
+ return;
+ }
+
+ var url = raw;
+
+ // Fast path 2: direct node link or HTTP URL — treat as link analysis
+ var isDirectNodeLink = Array.Exists(NodeLinkPrefixes, p => raw.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+ var isHttpUrl = raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+     || raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+ // Fast path 3: free-form question — route to hermesAPI via OpenAI-compatible chat/completions
+ if (!isDirectNodeLink && !isHttpUrl)
+ {
+ AddMessage(AIChatRole.User, $"💬 {raw}");
+ var aiConfig = _config.AIConfigItem ?? new AIConfigItem();
+ if (!aiConfig.Enabled || aiConfig.ApiUrl.IsNullOrEmpty())
+ {
+ AddMessage(AIChatRole.AI, "❌ **AI功能未启用**\n\n请先在「设置 → AI智能获取设置」中配置API地址和密钥。");
+ return;
+ }
+ var answer = await AskHermesAsync(aiConfig, raw);
+ AddMessage(AIChatRole.AI, answer ?? "❌ AI 未返回任何内容。");
+ return;
+ }
+
+ AddMessage(AIChatRole.User, $"🔗 分析这个内容：{(url.Length > 200 ? url[..200] + "..." : url)}");
 
  try
  {
@@ -151,53 +194,77 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             {
                 AddMessage(AIChatRole.AI, $"⚠️ 未能从链接中提取到有效的VPN节点。\n\n可能原因：\n- 页面内容不包含节点链接\n- 节点格式无法识别\n- 需要登录才能查看内容\n\n**来源URL**: `{url}`");
                 return;
-            }
+            } // Cap the candidate pool — free sources like V2RayAggregator return
+ // thousands of links; testing all of them would freeze the UI for
+ // minutes. Test at most MaxNodes * 3 (min 30, max 150).
+ var pool = nodes.Count > MaxNodes * 3
+ ? nodes.Take(MaxNodes * 3).ToList()
+ : nodes;
+ if (pool.Count > 150) pool = pool.Take(150).ToList();
+ AddMessage(AIChatRole.AI, $"🔍 从内容中提取到 **{nodes.Count}** 个候选节点，先验证前 **{pool.Count}** 个...");
 
-            AddMessage(AIChatRole.AI, $"🔍 从内容中提取到 **{nodes.Count}** 个候选节点，开始逐个验证...");
+ // Step 3: Test nodes concurrently (20 in flight, 3 s each) but keep
+ // results in the original order for the UI list.
+ var results = new List<AIChatNodeResult>();
+ var validNodes = new List<string>();
+ var resultLock = new object();
 
-            // Step 3: Test each node
-            var results = new List<AIChatNodeResult>();
-            var validNodes = new List<string>();
+ using var semaphore = new SemaphoreSlim(20);
+ var testTasks = pool.Select(async nodeLink =>
+ {
+ var result = new AIChatNodeResult
+ {
+ NodeLink = nodeLink,
+ DisplayName = ExtractNodeName(nodeLink),
+ Protocol = ExtractProtocol(nodeLink),
+ Address = ExtractAddress(nodeLink),
+ Status = AIChatNodeStatus.Testing,
+ StatusText = "正在验证..."
+ };
+ lock (resultLock)
+ {
+ results.Add(result);
+ }
 
-            foreach (var nodeLink in nodes)
-            {
-                var result = new AIChatNodeResult
-                {
-                    NodeLink = nodeLink,
-                    DisplayName = ExtractNodeName(nodeLink),
-                    Protocol = ExtractProtocol(nodeLink),
-                    Address = ExtractAddress(nodeLink),
-                    Status = AIChatNodeStatus.Testing,
-                    StatusText = "正在验证..."
-                };
-                results.Add(result);
+ // 强制测试：未通过测试的节点一律不导入（失效链接绝不入组）。
+ await semaphore.WaitAsync();
+ bool passed;
+ try
+ {
+ passed = await TestNode(nodeLink);
+ }
+ finally
+ {
+ semaphore.Release();
+ }
+ if (passed)
+ {
+ result.Status = AIChatNodeStatus.Passed;
+ result.StatusText = "✅ 验证通过";
+ lock (resultLock)
+ {
+ validNodes.Add(nodeLink);
+ }
+ }
+ else
+ {
+ result.Status = AIChatNodeStatus.Failed;
+ result.StatusText = "❌ 验证失败";
+ }
+ }).ToList();
+ await Task.WhenAll(testTasks);
 
-                if (AutoTest)
-                {
-                    if (await TestNode(nodeLink))
-                    {
-                        result.Status = AIChatNodeStatus.Passed;
-                        result.StatusText = "✅ 验证通过";
-                        validNodes.Add(nodeLink);
-                    }
-                    else
-                    {
-                        result.Status = AIChatNodeStatus.Failed;
-                        result.StatusText = "❌ 验证失败";
-                    }
-                }
-                else
-                {
-                    result.Status = AIChatNodeStatus.Passed;
-                    result.StatusText = "⏭️ 跳过验证";
-                    validNodes.Add(nodeLink);
-                }
+ // Restore original order with an O(n) index map (IndexOf on a
+ // 4000-item list is O(n²) — the freeze the user hit).
+ var orderMap = new Dictionary<string, int>(pool.Count);
+ for (int i = 0; i < pool.Count; i++) orderMap[pool[i]] = i;
+ results = results.OrderBy(r => orderMap.TryGetValue(r.NodeLink, out var oi) ? oi : int.MaxValue).ToList();
 
-                if (validNodes.Count >= MaxNodes)
-                {
-                    break;
-                }
-            }
+ // Cap at MaxNodes
+ if (validNodes.Count > MaxNodes)
+ {
+ validNodes = validNodes.Take(MaxNodes).ToList();
+ }
 
             // Show node results
             AddNodeResultMessage(results, validNodes.Count);
@@ -291,18 +358,184 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             Content = content,
             Timestamp = DateTime.Now
         });
+    } private void AddNodeResultMessage(List<AIChatNodeResult> results, int passedCount)
+ {
+ var lastMsg = Messages.LastOrDefault();
+ // Render at most 30 rows in the bubble — thousands of results would
+ // freeze the chat window.
+ var shown = results.Count > 30 ? results.Take(30).ToList() : results;
+ Messages.Add(new AIChatMessage
+ {
+ Role = AIChatRole.System,
+ Content = $"节点验证结果：{passedCount}/{results.Count} 通过" + (results.Count > 30 ? $"（显示前 30 条）" : ""),
+ Timestamp = DateTime.Now,
+ NodeResults = shown
+ });
+ }
+
+    #endregion
+
+    #region Local Command Router
+
+    private sealed class LocalCommand
+    {
+        public string Name = string.Empty;
+        public JsonElement Args = default;
     }
 
-    private void AddNodeResultMessage(List<AIChatNodeResult> results, int passedCount)
+    private static readonly string[] NodeLinkPrefixes =
     {
-        var lastMsg = Messages.LastOrDefault();
-        Messages.Add(new AIChatMessage
+        "vmess://", "vless://", "trojan://", "ss://", "hy2://", "hysteria2://",
+        "tuic://", "socks://", "socks5://", "wireguard://", "anytls://",
+        "naive://", "naive+https://", "naive+quic://",
+    };
+
+    /// <summary>
+    /// Recognise a chat line as a local command. Return null when the input is
+    /// a URL or raw text that should go through the normal analyse pipeline.
+    /// </summary>
+    private static LocalCommand? TryMatchLocalCommand(string raw)
+    {
+        // A URL or direct node link — normal analyse path
+        if (raw.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            raw.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            Array.Exists(NodeLinkPrefixes, p => raw.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        // Chinese + English command vocabulary
+        var lsName = "servers";
+        string? lsArg = null;
+        if (TryKeyword(raw, "列表", "list", out lsName, out lsArg))
+            return new LocalCommand { Name = lsName, Args = BuildArgs("remarks", lsArg) };
+
+        if (TryKeyword(raw, "分组", "groups", out _, out _))
+            return new LocalCommand { Name = "groups" };
+
+        if (TryKeyword(raw, "状态", "status", out _, out _))
+            return new LocalCommand { Name = "status" };
+
+        if (TryKeyword(raw, "节点", "servers", out _, out var serversArg))
+            return new LocalCommand { Name = "servers", Args = BuildArgs("remarks", serversArg) };
+
+        if (TryKeyword(raw, "切换", "select", out _, out var selectArg))
+            return new LocalCommand { Name = "selectGroup", Args = BuildArgs("remarks", selectArg) };
+
+        if (TryKeyword(raw, "删除", "delete", out _, out var deleteArg))
+            return new LocalCommand { Name = "deleteNode", Args = BuildArgs("remarks", deleteArg) };
+
+        if (TryKeyword(raw, "添加", "add", out _, out var addArg))
+            return new LocalCommand { Name = "addNodes", Args = BuildLinksArg(addArg) };
+
+        if (TryKeyword(raw, "测试", "test", out _, out var testArg))
+            return new LocalCommand { Name = "testNode", Args = BuildLinksArg(testArg) };
+
+        if (TryKeyword(raw, "代理", "proxy", out _, out var proxyMode))
+            return new LocalCommand { Name = "systemProxy", Args = BuildArgs("mode", NormalizeProxyMode(proxyMode)) };
+
+        return null;
+    }
+
+    private static bool TryKeyword(string raw, string cn, string en, out string name, out string? arg)
+    {
+        name = en;
+        arg = null;
+
+        var lower = raw.ToLowerInvariant();
+        var idx = lower.IndexOf(en, StringComparison.Ordinal);
+        if (idx >= 0)
         {
-            Role = AIChatRole.System,
-            Content = $"节点验证结果：{passedCount}/{results.Count} 通过",
-            Timestamp = DateTime.Now,
-            NodeResults = results
-        });
+            arg = raw[(idx + en.Length)..].Trim();
+            return true;
+        }
+
+        idx = raw.IndexOf(cn, StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            arg = raw[(idx + cn.Length)..].Trim();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static JsonElement BuildArgs(string key, string? value)
+    {
+        var dict = new Dictionary<string, JsonElement>();
+        if (!string.IsNullOrWhiteSpace(value))
+            dict[key] = JsonSerializer.SerializeToElement(value!);
+        return JsonSerializer.SerializeToElement(dict);
+    }
+
+    private static JsonElement BuildLinksArg(string? input)
+    {
+        var dict = new Dictionary<string, JsonElement>();
+        if (!string.IsNullOrWhiteSpace(input))
+        {
+            var links = input.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+            dict["links"] = JsonSerializer.SerializeToElement(links);
+        }
+        return JsonSerializer.SerializeToElement(dict);
+    }
+
+    private static string NormalizeProxyMode(string? mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode)) return "set";
+        var lower = mode.ToLowerInvariant();
+        if (lower.Contains("pac") || lower.Contains("自动")) return "pac";
+        if (lower.Contains("clear") || lower.Contains("off") || lower.Contains("关闭") || lower.Contains("关")) return "clear";
+        return "set";
+    }
+
+    /// <summary>
+    /// Execute a local command by looking it up in the registered AI capability
+    /// registry. This reuses the same code path as the HTTP API so behaviour
+    /// stays identical whether the AI is called over HTTP or from the chat box.
+    /// </summary>
+    private async Task ExecuteLocalCommandAsync(LocalCommand cmd, string rawInput)
+    {
+        var capability = AiCapabilityRegistry.All.FirstOrDefault(c =>
+            string.Equals(c.Descriptor.Name, cmd.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (capability is null)
+        {
+            AddMessage(AIChatRole.AI, $"❌ 未找到命令 `/{cmd.Name}`。");
+            return;
+        }
+
+        AddMessage(AIChatRole.AI, $"🧠 执行 `/{cmd.Name}`...");
+
+        var result = await capability.InvokeAsync(cmd.Args, CancellationToken.None);
+
+        if (!result.Ok)
+        {
+            AddMessage(AIChatRole.AI, $"❌ 命令失败：{result.Message}");
+            return;
+        }
+
+        var body = result.Data?.GetRawText() ?? "{}";
+        var pretty = PrettyJson(body);
+        var head = result.Message is { Length: > 0 } ? result.Message : "完成";
+        var text = $"✅ {head}\n\n{Truncate(pretty, 900)}";
+        AddMessage(AIChatRole.AI, text);
+    }
+
+    private static string PrettyJson(string raw)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(raw);
+            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return raw;
+        }
+    }
+
+    private static string Truncate(string s, int max)
+    {
+        if (s.Length <= max) return s;
+        return s[..max] + "\n... (已截断)";
     }
 
     #endregion
@@ -466,12 +699,89 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                 return null;
             }
             return ParseNodesFromText(message ?? string.Empty);
-        }
+        } return null;
+ }
 
-        return null;
-    }
+ /// <summary>
+ /// Sends a free-form chat message to the Hermes API (OpenAI-compatible /chat/completions)
+ /// and returns the assistant's reply. The system prompt tells the model that it is
+ /// conversing inside LDv2rayN, so it can reference local command keywords and
+ /// suggest the user drive the app through this dialog.
+ /// </summary>
+ private async Task<string?> AskHermesAsync(AIConfigItem aiConfig, string userMessage)
+ {
+ try
+ {
+ using var httpClient = new HttpClient();
+ httpClient.Timeout = TimeSpan.FromSeconds(90);
 
-    private async Task<bool> TestNode(string nodeLink)
+ var requestBody = new
+ {
+ model = aiConfig.ModelId,
+ messages = new object[]
+ {
+ new
+ {
+ role = "system",
+ content =
+ @"你是嵌入在 LDv2rayN 客户端中的 AI 助手（模型 hermesAPI）。当前用户在 Windows 桌面软件里通过聊天窗口跟你对话。
+
+背景：
+- LDv2rayN 是一个代理/VPN 客户端，用于绕过中国大陆的网络访问限制，可以管理 vless/vmess/trojan/shadowsocks/hysteria2/tuic 等节点。
+- 用户可以在此对话框直接输入节点链接（vmess:// vless:// trojan:// ss:// hy2:// tuic:// 等）或 HTTP URL，程序会自动分析、测活、加入分组。
+- 用户也可以输入简短的中文/英文命令让程序执行操作，例如：「列表」查节点、「分组」查分组、「状态」查应用状态、「切换 xxx」切换分组、「删除 xxx」删除节点、「添加 <链接>」添加节点、「测试 <链接>」测活、「代理 clear」关闭系统代理。
+
+回答要求：
+1. 用中文回复，简洁但有帮助。
+2. 当用户的问题可以通过上述命令完成时，主动告诉用户「你可以在对话框输入 XXX」。
+3. 当用户询问与 VPN/代理/网络相关的知识时，尽量给出实用建议（例如如何选择节点、如何检测节点可用性、如何配置绕过限制）。
+4. 当用户粘贴了一个 URL 或节点链接，程序会自动处理，你不要重复处理，只需要确认。
+5. 支持 Markdown 格式（**粗体**、`code`、列表）。
+"}
+,
+ new { role = "user", content = userMessage }
+ },
+ temperature = 0.7,
+ max_tokens = 1500
+ };
+
+ var json = JsonSerializer.Serialize(requestBody);
+ var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+ if (aiConfig.ApiKey.IsNotEmpty())
+ {
+ httpClient.DefaultRequestHeaders.Authorization =
+ new AuthenticationHeaderValue("Bearer", aiConfig.ApiKey);
+ }
+
+ var response = await httpClient.PostAsync($"{aiConfig.ApiUrl}/chat/completions", httpContent);
+ var responseJson = await response.Content.ReadAsStringAsync();
+
+ if (!response.IsSuccessStatusCode)
+ {
+ Logging.SaveLog($"AskHermesAsync failed: {response.StatusCode} {responseJson}");
+ var errBody = responseJson.Length > 300 ? responseJson[..300] + "..." : responseJson;
+ return $"❌ AI 服务返回错误：{response.StatusCode}\n\n`{errBody}`";
+ }
+
+ var doc = JsonDocument.Parse(responseJson);
+ if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+ {
+ var reply = choices[0].GetProperty("message").GetProperty("content").GetString();
+ if (!string.IsNullOrWhiteSpace(reply))
+ return reply;
+ }
+
+ return "（AI 未返回内容）";
+ }
+ catch (Exception ex)
+ {
+ Logging.SaveLog(_tag, ex);
+ return $"❌ 请求 AI 服务失败：`{ex.Message}`";
+ }
+ }
+
+ private async Task<bool> TestNode(string nodeLink)
     {
         try
         {
@@ -487,29 +797,29 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
                 return true;
-            }
-
-            // TCP connect test — more accurate than DNS-only
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            try
-            {
-                using var client = new TcpClient();
-                await client.ConnectAsync(address, port, cts.Token);
-                return client.Connected;
-            }
-            catch
-            {
-                // If TCP connect fails, fall back to DNS check
-                try
-                {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
-                    return hostEntry.AddressList.Length > 0;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
+            } // TCP connect test with DNS fallback: TCP unreachable can be transient
+ // (overseas free nodes) — if the domain still resolves, admit the node
+ // so a slow network doesn't drop every candidate. Both TCP and DNS
+ // failing = dead link, reject.
+ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+ try
+ {
+ using var client = new TcpClient();
+ await client.ConnectAsync(address, port, cts.Token);
+ return client.Connected;
+ }
+ catch
+ {
+ try
+ {
+ var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
+ return hostEntry.AddressList.Length > 0;
+ }
+ catch
+ {
+ return false;
+ }
+ }
         }
         catch
         {

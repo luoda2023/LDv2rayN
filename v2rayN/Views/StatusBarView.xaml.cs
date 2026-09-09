@@ -77,6 +77,19 @@ public partial class StatusBarView
         });
 
         RefreshIcon();
+
+        // AI auto-crawl completion -> tray notification
+        ServiceLib.Services.AISchedulerService.RunCompleted += (msg, added) =>
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    tbNotify.ShowNotification("AI 自动搜索完成", msg, H.NotifyIcon.Core.NotificationIcon.Info);
+                }
+                catch { }
+            });
+        };
     }
 
     private void RefreshIcon()

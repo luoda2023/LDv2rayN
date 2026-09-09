@@ -34,33 +34,47 @@ public class AIFetchService
             var nodes = await SearchGitHubForFreeNodes(aiConfig);
             if (nodes == null || nodes.Count == 0)
             {
+                AISearchTracker.RecordError("未找到可用的免费VPN节点");
                 await _updateFunc(false, "❌ AI未找到可用的免费VPN节点");
                 return 0;
             }
 
+            AISearchTracker.RecordCandidates(nodes);
             await _updateFunc(false, $"🔍 AI找到 {nodes.Count} 个候选节点，正在验证...");
 
-            // Step 2: Test each node
-            var validNodes = new List<string>();
-            foreach (var node in nodes)
-            {
-                if (await TestNode(node))
-                {
-                    validNodes.Add(node);
-                    await _updateFunc(false, $"✅ 节点验证通过: {ExtractNodeName(node)}");
-                }
-                else
-                {
-                    await _updateFunc(false, $"❌ 节点验证失败: {ExtractNodeName(node)}");
-                }
+ // Step 2: Test nodes concurrently (max 20 in flight, 3 s each) —
+ // serial testing of 200 candidates would take minutes.
+ var validNodes = new List<string>();
+ using var semaphore = new SemaphoreSlim(20);
+ var tasks = nodes.Select(async node =>
+ {
+ await semaphore.WaitAsync();
+ try
+ {
+ if (await TestNode(node))
+ {
+ lock (validNodes)
+ {
+ validNodes.Add(node);
+ }
+ }
+ }
+ finally
+ {
+ semaphore.Release();
+ }
+ }).ToList();
+ await Task.WhenAll(tasks);
 
-                if (validNodes.Count >= aiConfig.MaxNodesPerSearch)
-                {
-                    break;
-                }
-            }
+ // Cap at MaxNodesPerSearch
+ if (validNodes.Count > aiConfig.MaxNodesPerSearch)
+ {
+ validNodes = validNodes.Take(aiConfig.MaxNodesPerSearch).ToList();
+ }
 
-            if (validNodes.Count == 0)
+ AISearchTracker.RecordTestResult(validNodes, nodes.Count);
+
+ if (validNodes.Count == 0)
             {
                 await _updateFunc(false, "⚠️ 所有节点验证均失败");
                 return 0;
@@ -70,12 +84,14 @@ public class AIFetchService
             var subId = await GetOrCreateAISubscriptionGroup(aiConfig.AiGroupRemarks);
             var result = await ConfigHandler.AddBatchServers(_config, string.Join("\n", validNodes), subId, true);
 
+            AISearchTracker.RecordImported(result);
             await _updateFunc(true, $"🎉 AI成功添加 {result} 个有效节点到「{aiConfig.AiGroupRemarks}」分组");
             return result;
         }
         catch (Exception ex)
         {
             Logging.SaveLog(_tag, ex);
+            AISearchTracker.RecordError($"搜索失败: {ex.Message}");
             await _updateFunc(false, $"❌ AI搜索失败: {ex.Message}");
             return 0;
         }
@@ -108,33 +124,46 @@ public class AIFetchService
             var nodes = await ExtractNodesFromContent(aiConfig, content, url);
             if (nodes == null || nodes.Count == 0)
             {
+                AISearchTracker.RecordError("未能从内容中提取到有效的节点链接");
                 await _updateFunc(false, "❌ AI未能从内容中提取到有效的节点链接");
                 return 0;
             }
 
+            AISearchTracker.BeginRun(0);
+            AISearchTracker.RecordCandidates(nodes);
             await _updateFunc(false, $"🔍 AI提取到 {nodes.Count} 个候选节点");
 
-            // Step 3: Optionally test nodes
-            var validNodes = new List<string>();
-            foreach (var node in nodes)
-            {
-                if (await TestNode(node))
-                {
-                    validNodes.Add(node);
-                    await _updateFunc(false, $"✅ 节点验证通过: {ExtractNodeName(node)}");
-                }
-                else
-                {
-                    await _updateFunc(false, $"❌ 节点验证失败: {ExtractNodeName(node)}");
-                }
+ // Step 3: Test nodes concurrently (max 20 in flight, 3 s each)
+ var validNodes = new List<string>();
+ using var semaphore = new SemaphoreSlim(20);
+ var tasks = nodes.Select(async node =>
+ {
+ await semaphore.WaitAsync();
+ try
+ {
+ if (await TestNode(node))
+ {
+ lock (validNodes)
+ {
+ validNodes.Add(node);
+ }
+ }
+ }
+ finally
+ {
+ semaphore.Release();
+ }
+ }).ToList();
+ await Task.WhenAll(tasks);
 
-                if (validNodes.Count >= maxNodes)
-                {
-                    break;
-                }
-            }
+ if (validNodes.Count > maxNodes)
+ {
+ validNodes = validNodes.Take(maxNodes).ToList();
+ }
 
-            if (validNodes.Count == 0)
+ AISearchTracker.RecordTestResult(validNodes, nodes.Count);
+
+ if (validNodes.Count == 0)
             {
                 await _updateFunc(false, "⚠️ 所有节点验证均失败");
                 return 0;
@@ -144,6 +173,7 @@ public class AIFetchService
             var subId = await GetOrCreateAISubscriptionGroup(targetGroup);
             var result = await ConfigHandler.AddBatchServers(_config, string.Join("\n", validNodes), subId, true);
 
+            AISearchTracker.RecordImported(result);
             await _updateFunc(true, $"🎉 成功添加 {result} 个有效节点到「{targetGroup}」分组");
             return result;
         }
@@ -169,16 +199,33 @@ public class AIFetchService
             Logging.SaveLog($"DownloadUrlContent failed: {ex.Message}");
             return string.Empty;
         }
-    }
+    } private async Task<List<string>?> ExtractNodesFromContent(AIConfigItem aiConfig, string content, string sourceUrl)
+ {
+ // First try to extract nodes directly from content (fast path)
+ var directNodes = ParseNodesFromResponse(content);
+ if (directNodes.Count > 0)
+ {
+ return directNodes;
+ }
 
-    private async Task<List<string>?> ExtractNodesFromContent(AIConfigItem aiConfig, string content, string sourceUrl)
-    {
-        // First try to extract nodes directly from content (fast path)
-        var directNodes = ParseNodesFromResponse(content);
-        if (directNodes.Count > 0)
-        {
-            return directNodes;
-        }
+ // Subscriptions are frequently Base64-encoded (often with newlines).
+ // Decode before falling back to the LLM — otherwise the LLM gets a
+ // blob of base64 it cannot parse and "0 nodes" is the result.
+ if (content.Trim().Length > 40)
+ {
+ try
+ {
+ var cleaned = new string(content.Where(c => !char.IsWhiteSpace(c)).ToArray());
+ var decodedBytes = Convert.FromBase64String(cleaned);
+ var decoded = Encoding.UTF8.GetString(decodedBytes);
+ var decodedNodes = ParseNodesFromResponse(decoded);
+ if (decodedNodes.Count > 0)
+ {
+ return decodedNodes;
+ }
+ }
+ catch { /* not valid base64; ignore */ }
+ }
 
         // If no direct nodes found, ask AI to analyze the content
         var prompt = $"""
@@ -242,67 +289,199 @@ public class AIFetchService
                 return null;
             }
             return ParseNodesFromResponse(message ?? string.Empty);
-        }
-
-        return null;
-    }
+        } return null;
+ }
 
     private async Task<List<string>?> SearchGitHubForFreeNodes(AIConfigItem aiConfig)
     {
-        using var httpClient = new HttpClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(60);
+        // Real GitHub search: query the (anonymous, unauthenticated) repo search
+        // API for freshly-updated free-VPN repos, then try each repo's common
+        // subscription file paths and parse node links out of them. LLM-only
+        // search was removed — a language model has no live internet and only
+        // hallucinated stale links.
+        var found = new List<string>();
 
-        var prompt = """
-你是一个VPN节点搜索助手。请搜索GitHub上最新的免费VPN/代理节点订阅链接。
-
-搜索关键词：
-1. free vpn subscription github
-2. free v2ray nodes github
-3. free clash nodes github  
-4. free proxy list github
-5. v2ray free nodes
-6. clash free proxy
-
-请执行以下步骤：
-1. 搜索GitHub上包含免费VPN节点的仓库
-2. 找到最新的订阅链接或节点分享
-3. 提取有效的v2ray/vmess/vless/trojan/shadowsocks/hysteria2链接
-4. 只返回有效的节点链接，每行一个
-
-返回格式：每行一个节点链接（vmess://, vless://, trojan://, ss://, hy2:// 等）
-""";
-
-        var requestBody = new
+        string[] SearchQueries =
         {
-            model = aiConfig.ModelId,
-            messages = new[]
-            {
-                new { role = "system", content = "你是一个专业的VPN节点搜索助手，专门搜索GitHub上的免费VPN节点。" },
-                new { role = "user", content = prompt }
-            },
-            temperature = 0.3,
-            max_tokens = 4000
+            "free v2ray nodes",
+            "free vless",
+            "free clash subscription",
+            "free trojan",
+            "free hysteria2",
+            "v2ray free subscribe",
+            "free vpn subscription github",
         };
 
-        var json = JsonSerializer.Serialize(requestBody);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        if (aiConfig.ApiKey.IsNotEmpty())
+        // Common subscription file paths inside each repo, in priority order.
+        string[] CandidatePaths =
         {
-            httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", aiConfig.ApiKey);
+            "sub/sub_merge.txt",
+            "sub/sub.txt",
+            "sub.txt",
+            "subscribe",
+            "sub",
+            "v2ray",
+            "nodes.txt",
+            "list.txt",
+            "sub/base64.txt",
+            "subscribe.txt",
+            "node",
+            "free.txt",
+            "ss.txt",
+            "vless.txt",
+        };
+
+        using var searchClient = new HttpClient();
+        searchClient.Timeout = TimeSpan.FromSeconds(15);
+        searchClient.DefaultRequestHeaders.UserAgent.ParseAdd("LDv2rayN/1.0 (github-search)");
+        searchClient.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/vnd.github+json");
+
+        var repos = new List<(string Owner, string Repo)>();
+        foreach (var query in SearchQueries)
+        {
+            if (repos.Count >= 12) break;
+            try
+            {
+                var url = $"https://api.github.com/search/repositories?q={Uri.EscapeDataString(query)}&sort=updated&order=desc&per_page=6";
+                var resp = await searchClient.GetAsync(url);
+                if (!resp.IsSuccessStatusCode) continue;
+                var json = await resp.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("items", out var items)) continue;
+                foreach (var item in items.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("full_name", out var fn)) continue;
+                    var full = fn.GetString();
+                    if (full is null) continue;
+                    var parts = full.Split('/');
+                    if (parts.Length != 2) continue;
+                    var pair = (parts[0], parts[1]);
+                    if (!repos.Contains(pair)) repos.Add(pair);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: repo search '{query}' failed: {ex.Message}");
+            }
         }
 
-        var response = await httpClient.PostAsync($"{aiConfig.ApiUrl}/chat/completions", content);
-        response.EnsureSuccessStatusCode();
+        // Start the tracked run once the repo list is known.
+        AISearchTracker.BeginRun(repos.Count);
 
-        var responseJson = await response.Content.ReadAsStringAsync();
-        var doc = JsonDocument.Parse(responseJson);
-
-        if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+        // Also always include the three long-lived aggregator repos as a
+        // reliable fallback even if GitHub search is rate-limited.
+        string[] FallbackRaw =
         {
-            var message = choices[0].GetProperty("message").GetProperty("content").GetString();
-            return ParseNodesFromResponse(message ?? string.Empty);
+            "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge.txt",
+            "https://raw.githubusercontent.com/Pawdroid/Free-servers/main/sub",
+            "https://raw.githubusercontent.com/ripaojiedian/freenode/main/sub",
+        };
+
+        // Probe repo candidate paths + fallback raw URLs concurrently.
+        var probeUrls = new List<string>();
+        foreach (var (owner, repo) in repos)
+        {
+            foreach (var p in CandidatePaths)
+            {
+                probeUrls.Add($"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{p}");
+            }
+        }
+        probeUrls.AddRange(FallbackRaw);
+
+        // Limit concurrency so we don't hammer GitHub with 100+ requests at once.
+        using var fetchSemaphore = new SemaphoreSlim(6);
+        var fetchTasks = probeUrls.Select(async rawUrl =>
+        {
+            List<string>? nodes = null;
+            try
+            {
+                await fetchSemaphore.WaitAsync();
+                try
+                {
+                    nodes = await FetchWithMirror(rawUrl);
+                }
+                finally
+                {
+                    fetchSemaphore.Release();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: raw fetch {rawUrl} failed: {ex.Message}");
+            }
+            return nodes;
+        }).ToList();
+
+        var fetchResults = await Task.WhenAll(fetchTasks);
+        foreach (var nodes in fetchResults)
+        {
+            if (nodes is null) continue;
+            foreach (var n in nodes)
+            {
+                if (found.Count >= 200) break;
+                if (!found.Contains(n, StringComparer.Ordinal)) found.Add(n);
+            }
+            if (found.Count >= 200) break;
+        }
+
+        return found.Count > 0 ? found : null;
+    }
+
+    /// <summary>
+    /// Fetch a raw.githubusercontent.com URL, falling back to China-friendly
+    /// mirror prefixes when the direct connection times out or fails. Mirrors
+    /// verified reachable: ghfast.top, gh-proxy.com, ghproxy.net.
+    /// </summary>
+    private async Task<List<string>?> FetchWithMirror(string rawUrl)
+    {
+        string[] Mirrors =
+        {
+            "https://ghfast.top/",
+            "https://gh-proxy.com/",
+            "https://ghproxy.net/",
+        };
+
+        // Try direct first, then each mirror until one yields nodes.
+        var attempts = new List<string> { rawUrl };
+        attempts.AddRange(Mirrors.Select(m => m + rawUrl));
+
+        foreach (var url in attempts)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(12);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                var resp = await client.GetAsync(url);
+                if (!resp.IsSuccessStatusCode) continue;
+                var text = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(text) || text.Length > 2_000_000) continue;
+
+                var nodes = ParseNodesFromResponse(text);
+                if (nodes.Count == 0 && text.Trim().Length > 40)
+                {
+                    // Base64-encoded subscription (with whitespace stripped).
+                    try
+                    {
+                        var cleaned = new string(text.Where(c => !char.IsWhiteSpace(c)).ToArray());
+                        var decodedBytes = Convert.FromBase64String(cleaned);
+                        var decoded = Encoding.UTF8.GetString(decodedBytes);
+                        nodes = ParseNodesFromResponse(decoded);
+                    }
+                    catch { /* not valid base64; ignore */ }
+                }
+
+                if (nodes.Count > 0)
+                {
+                    return nodes;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: fetch {url} failed: {ex.Message}");
+            }
         }
 
         return null;
@@ -362,29 +541,28 @@ public class AIFetchService
             if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
             {
                 return true;
-            }
-
-            // TCP connect test — more accurate than DNS-only
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            try
-            {
-                using var client = new TcpClient();
-                await client.ConnectAsync(address, port, cts.Token);
-                return client.Connected;
-            }
-            catch
-            {
-                // Fall back to DNS check if TCP fails
-                try
-                {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
-                    return hostEntry.AddressList.Length > 0;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
+            } // TCP connect test with DNS fallback: overseas free nodes are often
+ // transiently TCP-unreachable but still usable. Admit if TCP connects
+ // OR the domain resolves; reject only when both fail.
+ using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+ try
+ {
+ using var client = new TcpClient();
+ await client.ConnectAsync(address, port, cts.Token);
+ return client.Connected;
+ }
+ catch
+ {
+ try
+ {
+ var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
+ return hostEntry.AddressList.Length > 0;
+ }
+ catch
+ {
+ return false;
+ }
+ }
         }
         catch
         {

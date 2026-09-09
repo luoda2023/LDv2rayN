@@ -105,7 +105,7 @@
 
         <tb:TaskbarIcon
             x:Name="tbNotify"
-            IconSource="/Resources/LDv2rayN.png"
+            IconSource="/Resources/NotifyIcon1.ico"
             NoLeftClickDelay="True"
             ToolTipText="LDv2rayN">
             <tb:TaskbarIcon.ContextMenu>

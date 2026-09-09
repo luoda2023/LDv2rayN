@@ -53,7 +53,7 @@ public partial class MarkdownText : UserControl
         }
     }
 
-    private static void AddLine(InlineCollection target, string line)
+    private void AddLine(InlineCollection target, string line)
     {
         int i = 0;
         while (i < line.Length)
@@ -76,12 +76,12 @@ public partial class MarkdownText : UserControl
                 if (end > 0)
                 {
                     var content = line.Substring(i + 1, end - i - 1);
-                    // Run has no Padding in WPF; simulate with background color only.
+                    // Run has no Padding in WPF; simulate with a theme-following background.
                     target.Add(new Run(" " + content + " ")
                     {
                         FontFamily = new FontFamily("Consolas"),
-                        Background = new SolidColorBrush(Color.FromRgb(0x31, 0x32, 0x44)),
-                        Foreground = new SolidColorBrush(Color.FromRgb(0x89, 0xB4, 0xFA))
+                        Background = (Brush)FindResource("MaterialDesignDivider"),
+                        Foreground = (Brush)FindResource("MaterialDesignBody")
                     });
                     i = end + 1;
                     continue;

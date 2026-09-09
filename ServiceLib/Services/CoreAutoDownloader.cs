@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace ServiceLib.Services;
@@ -8,14 +9,27 @@ namespace ServiceLib.Services;
 /// Detects missing Xray-core binaries at startup and downloads the latest
 /// release from XTLS/Xray-core, extracting into bin/xray/. Never blocks the
 /// UI — runs on a background thread, logs success/failure to Logging.SaveLog.
+/// Direct github.com download often stalls mid-file on CN networks, so the
+/// download is retried through GitHub mirror prefixes; every attempt verifies
+/// the received byte count against Content-Length before extraction.
 /// </summary>
 public static class CoreAutoDownloader
 {
     private static readonly string _tag = "CoreAutoDownloader";
 
+    // Try direct first, then mirror prefixes. "" = direct github.com.
+    private static readonly string[] _mirrorPrefixes =
+    [
+        "",
+        "https://ghfast.top/",
+        "https://gh-proxy.com/",
+        "https://ghproxy.net/",
+        "https://mirror.ghproxy.com/",
+    ];
+
     private static readonly Lazy<HttpClient> _client = new(() => new HttpClient
     {
-        Timeout = TimeSpan.FromMinutes(3),
+        Timeout = TimeSpan.FromMinutes(5),
         DefaultRequestHeaders = { { "User-Agent", "LDv2rayN" } },
     });
 
@@ -67,92 +81,112 @@ public static class CoreAutoDownloader
             return false;
         }
 
-        var url = BuildDownloadUrl(version);
-        Logging.SaveLog($"{_tag}: downloading {url}");
-
-        var zipPath = Path.Combine(Path.GetTempPath(), $"LDv2rayN_xray_{Guid.NewGuid():N}.zip");
-        var start = DateTime.UtcNow;
-        long bytes = 0;
-
-        try
+        var downloadUrl = BuildDownloadUrl(version);
+        foreach (var mirror in _mirrorPrefixes)
         {
-            using (var response = await _client.Value.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
+            var url = $"{mirror}{downloadUrl}";
+            var zipPath = Path.Combine(Path.GetTempPath(), $"LDv2rayN_xray_{Guid.NewGuid():N}.zip");
+            var start = DateTime.UtcNow;
+            try
             {
-                if (!response.IsSuccessStatusCode)
+                Logging.SaveLog($"{_tag}: downloading {url}");
+                var bytes = await DownloadToFileAsync(url, zipPath);
+                Logging.SaveLog($"{_tag}: finished {bytes / 1024} KB in {DateTime.UtcNow - start} via '{mirror}'");
+
+                await ExtractAsync(zipPath, targetDir);
+
+                var installed = FindXrayBinary(targetDir);
+                if (installed == null)
                 {
-                    Logging.SaveLog($"{_tag}: HTTP {(int)response.StatusCode} from {url}");
+                    Logging.SaveLog($"{_tag}: extracted but xray binary not found in {targetDir}");
                     return false;
                 }
 
-                var contentLength = response.Content.Headers.ContentLength;
-                await using (var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                await using (var stream = response.Content.ReadAsStream())
+                Logging.SaveLog($"{_tag}: xray installed at {installed} (v{version}) via '{mirror}'");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: download via '{mirror}' failed after {DateTime.UtcNow - start}: {ex.Message}");
+            }
+            finally
+            {
+                try
                 {
-                    var buffer = new byte[81920];
-                    int n;
-                    while ((n = await stream.ReadAsync(buffer, CancellationToken.None)) > 0)
-                    {
-                        await fs.WriteAsync(buffer.AsMemory(0, n), CancellationToken.None);
-                        bytes += n;
-                        if (bytes % (1024 * 1024) < 81920)
-                        {
-                            Logging.SaveLog($"{_tag}: downloaded {bytes / 1024} KB (of {contentLength?.ToString() ?? "?"})");
-                        }
-                    }
+                    if (File.Exists(zipPath)) File.Delete(zipPath);
                 }
+                catch { /* ignore cleanup */ }
             }
-
-            Logging.SaveLog($"{_tag}: finished {bytes / 1024} KB in {DateTime.UtcNow - start}");
-            await ExtractAsync(zipPath, targetDir);
-
-            var installed = FindXrayBinary(targetDir);
-            if (installed == null)
-            {
-                Logging.SaveLog($"{_tag}: extracted but xray binary not found in {targetDir}");
-                return false;
-            }
-
-            Logging.SaveLog($"{_tag}: xray installed at {installed} (v{version})");
-            return true;
         }
-        catch (Exception ex)
+
+        Logging.SaveLog($"{_tag}: all {_mirrorPrefixes.Length} source(s) failed for v{version}");
+        return false;
+    }
+
+    private static async Task<long> DownloadToFileAsync(string url, string zipPath)
+    {
+        using (var response = await _client.Value.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
         {
-            Logging.SaveLog($"{_tag}: download failed after {DateTime.UtcNow - start} with {bytes / 1024} KB downloaded: {ex.Message}");
-            return false;
-        }
-        finally
-        {
-            try
+            if (!response.IsSuccessStatusCode)
             {
-                if (File.Exists(zipPath)) File.Delete(zipPath);
+                throw new IOException($"HTTP {(int)response.StatusCode} from {url}");
             }
-            catch { /* ignore cleanup */ }
+
+            var contentLength = response.Content.Headers.ContentLength;
+            await using (var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            await using (var stream = response.Content.ReadAsStream())
+            {
+                var buffer = new byte[81920];
+                long bytes = 0;
+                int n;
+                while ((n = await stream.ReadAsync(buffer, CancellationToken.None)) > 0)
+                {
+                    await fs.WriteAsync(buffer.AsMemory(0, n), CancellationToken.None);
+                    bytes += n;
+                }
+
+                // A truncated stream (stalled/reset CN connection) would otherwise
+                // be silently accepted and fail only at extraction. Reject early so
+                // the next mirror is tried with the full payload.
+                if (contentLength.HasValue && bytes != contentLength.Value)
+                {
+                    throw new IOException($"incomplete download: {bytes} of {contentLength} bytes from {url}");
+                }
+                return bytes;
+            }
         }
     }
 
     private static async Task<string?> GetLatestVersionAsync()
     {
-        // Use the "latest" redirect shortcut — no JSON parsing needed.
-        // HEAD request to the "latest" path returns a 302 to the actual tag.
-        // Fallback: parse the GitHub API JSON for tag_name.
-        try
+        // Direct api.github.com first; gh-proxy.com proxies the API when direct fails.
+        var apiUrls = new[]
         {
-            var json = await _client.Value.GetStringAsync("https://api.github.com/repos/XTLS/Xray-core/releases/latest");
-            // Naive tag_name extraction (avoid adding a JSON library dependency).
-            var idx = json.IndexOf("\"tag_name\"", StringComparison.Ordinal);
-            if (idx < 0) return null;
-            var quoteOpen = json.IndexOf('"', idx + 10);
-            if (quoteOpen < 0) return null;
-            var quoteClose = json.IndexOf('"', quoteOpen + 1);
-            if (quoteClose < 0) return null;
-            var tag = json.Substring(quoteOpen + 1, quoteClose - quoteOpen - 1);
-            return tag.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? tag[1..] : tag;
-        }
-        catch (Exception ex)
+            "https://api.github.com/repos/XTLS/Xray-core/releases/latest",
+            "https://gh-proxy.com/https://api.github.com/repos/XTLS/Xray-core/releases/latest",
+        };
+
+        foreach (var url in apiUrls)
         {
-            Logging.SaveLog($"{_tag}: GetLatestVersion failed: {ex.Message}");
-            return null;
+            try
+            {
+                var json = await _client.Value.GetStringAsync(url);
+                // Naive tag_name extraction (avoid adding a JSON library dependency).
+                var idx = json.IndexOf("\"tag_name\"", StringComparison.Ordinal);
+                if (idx < 0) continue;
+                var quoteOpen = json.IndexOf('"', idx + 10);
+                if (quoteOpen < 0) continue;
+                var quoteClose = json.IndexOf('"', quoteOpen + 1);
+                if (quoteClose < 0) continue;
+                var tag = json.Substring(quoteOpen + 1, quoteClose - quoteOpen - 1);
+                return tag.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? tag[1..] : tag;
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"{_tag}: GetLatestVersion via {url} failed: {ex.Message}");
+            }
         }
+        return null;
     }
 
     private static string BuildDownloadUrl(string version)

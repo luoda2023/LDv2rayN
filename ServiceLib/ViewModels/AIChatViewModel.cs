@@ -10,6 +10,41 @@ namespace ServiceLib.ViewModels;
 public partial class AIChatViewModel : MyReactiveObject, ICloseable
 {
     private static readonly string _tag = "AIChatViewModel";
+
+    private static readonly object _chatTraceLock = new();
+
+    // Full system prompt sent to the model, hoisted so it can be echoed
+    // verbatim to ai_chat_trace.txt for diagnosing garbled replies.
+    private const string AiSystemPrompt = @"你是嵌入在 LDv2rayN 客户端中的 AI 助手（模型 hermesAPI）。当前用户在 Windows 桌面软件里通过聊天窗口跟你对话。
+
+背景：
+- LDv2rayN 是一个代理/VPN 客户端，用于绕过中国大陆的网络访问限制，可以管理 vless/vmess/trojan/shadowsocks/hysteria2/tuic 等节点。
+- 用户可以在此对话框直接输入节点链接（vmess:// vless:// trojan:// ss:// hy2:// tuic:// 等）或 HTTP URL，程序会自动分析、测活、加入分组。
+- 用户也可以输入简短的中文/英文命令让程序执行操作，例如：「列表」查节点、「分组」查分组、「状态」查应用状态、「切换 xxx」切换分组、「删除 xxx」删除节点、「添加 <链接>」添加节点、「测试 <链接>」测活、「代理 clear」关闭系统代理。
+
+回答要求：
+1. 用中文回复，简洁但有帮助。
+2. 当用户的问题可以通过上述命令完成时，主动告诉用户「你可以在对话框输入 XXX」。
+3. 当用户询问与 VPN/代理/网络相关的知识时，尽量给出实用建议（例如如何选择节点、如何检测节点可用性、如何配置绕过限制）。
+4. 当用户粘贴了一个 URL 或节点链接，程序会自动处理，你不要重复处理，只需要确认。
+5. 支持 Markdown 格式（**粗体**、`code`、列表）。";
+
+    // Append a multi-line block verbatim to the plain-text chat trace.
+    private static void TraceWire(string title, string text)
+    {
+        try
+        {
+            lock (_chatTraceLock)
+            {
+                var dir = Utils.StartupPath();
+                if (dir.IsNullOrEmpty()) return;
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                var file = Path.Combine(dir, "ai_chat_trace.txt");
+                File.AppendAllText(file, "\r\n=== " + title + " ===\r\n" + text + "\r\n");
+            }
+        }
+        catch { }
+    }
     public event EventHandler? RequestClose;
 
     [Reactive] public partial string ChatInput { get; set; } = string.Empty;
@@ -1209,20 +1244,7 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                     new
                     {
                         role = "system",
-                        content =
-                        @"你是嵌入在 LDv2rayN 客户端中的 AI 助手（模型 hermesAPI）。当前用户在 Windows 桌面软件里通过聊天窗口跟你对话。
-
-背景：
-- LDv2rayN 是一个代理/VPN 客户端，用于绕过中国大陆的网络访问限制，可以管理 vless/vmess/trojan/shadowsocks/hysteria2/tuic 等节点。
-- 用户可以在此对话框直接输入节点链接（vmess:// vless:// trojan:// ss:// hy2:// tuic:// 等）或 HTTP URL，程序会自动分析、测活、加入分组。
-- 用户也可以输入简短的中文/英文命令让程序执行操作，例如：「列表」查节点、「分组」查分组、「状态」查应用状态、「切换 xxx」切换分组、「删除 xxx」删除节点、「添加 <链接>」添加节点、「测试 <链接>」测活、「代理 clear」关闭系统代理。
-
-回答要求：
-1. 用中文回复，简洁但有帮助。
-2. 当用户的问题可以通过上述命令完成时，主动告诉用户「你可以在对话框输入 XXX」。
-3. 当用户询问与 VPN/代理/网络相关的知识时，尽量给出实用建议（例如如何选择节点、如何检测节点可用性、如何配置绕过限制）。
-4. 当用户粘贴了一个 URL 或节点链接，程序会自动处理，你不要重复处理，只需要确认。
-5. 支持 Markdown 格式（**粗体**、`code`、列表）。"
+                        content = AiSystemPrompt
                     },
                     new { role = "user", content = userMessage }
                 },
@@ -1230,6 +1252,8 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
                 max_tokens = 1500
             };
 
+            TraceWire("AI-wire system-prompt", AiSystemPrompt);
+            TraceWire("AI-wire user-input", userMessage);
             var json = JsonSerializer.Serialize(requestBody);
             var httpContent = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
 
@@ -1253,6 +1277,7 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
             {
                 var reply = choices[0].GetProperty("message").GetProperty("content").GetString();
+                TraceWire("AI-wire raw-reply", reply);
                 if (!string.IsNullOrWhiteSpace(reply))
                     return reply;
             }
@@ -1279,12 +1304,19 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             var address = profile.Address;
             var port = profile.Port;
 
-            if (address.IsNullOrEmpty() || address.Equals("127.0.0.1") || port <= 0)
+            // Never accept a node with no real endpoint: empty address is an
+            // invalid link, not a pass. Loopback is the only auto-accept case.
+            if (address.IsNullOrEmpty() || port <= 0)
+            {
+                return false;
+            }
+            if (address.Equals("127.0.0.1") || address.Equals("localhost"))
             {
                 return true;
             }
 
-            // TCP connect test with DNS fallback
+            // Real TCP connect test. DNS resolution success does NOT mean the
+            // node is usable, so no DNS fallback.
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             try
             {
@@ -1294,15 +1326,7 @@ public partial class AIChatViewModel : MyReactiveObject, ICloseable
             }
             catch
             {
-                try
-                {
-                    var hostEntry = await System.Net.Dns.GetHostEntryAsync(address);
-                    return hostEntry.AddressList.Length > 0;
-                }
-                catch
-                {
-                    return false;
-                }
+                return false;
             }
         }
         catch

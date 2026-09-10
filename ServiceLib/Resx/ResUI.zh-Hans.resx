@@ -420,6 +420,24 @@
   <data name="menuPromotion" xml:space="preserve">
     <value>AI生产力工具</value>
   </data>
+  <data name="menuAiProductivity" xml:space="preserve">
+    <value>AI生产力工具</value>
+  </data>
+  <data name="menuAISetting" xml:space="preserve">
+    <value>AI智能获取</value>
+  </data>
+  <data name="menuAILog" xml:space="preserve">
+    <value>查看 AI 日志</value>
+  </data>
+  <data name="menuAIChat" xml:space="preserve">
+    <value>AI代理助手</value>
+  </data>
+  <data name="menuSecurityPreset" xml:space="preserve">
+    <value>一键安全配置</value>
+  </data>
+  <data name="menuLeakDetection" xml:space="preserve">
+    <value>泄露检测</value>
+  </data>
   <data name="menuReload" xml:space="preserve">
     <value>重启服务</value>
   </data>

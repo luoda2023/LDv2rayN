@@ -420,6 +420,24 @@
   <data name="menuPromotion" xml:space="preserve">
     <value>AI Productivity Tools</value>
   </data>
+  <data name="menuAiProductivity" xml:space="preserve">
+    <value>AI Productivity Tools</value>
+  </data>
+  <data name="menuAISetting" xml:space="preserve">
+    <value>دریافت هوشمند</value>
+  </data>
+  <data name="menuAILog" xml:space="preserve">
+    <value>لوگ هوش مصنوعی</value>
+  </data>
+  <data name="menuAIChat" xml:space="preserve">
+    <value>چت هوش مصنوعی</value>
+  </data>
+  <data name="menuSecurityPreset" xml:space="preserve">
+    <value>پیش‌تنظیم امن</value>
+  </data>
+  <data name="menuLeakDetection" xml:space="preserve">
+    <value>تشخیص نشت</value>
+  </data>
   <data name="menuReload" xml:space="preserve">
     <value>بارگذاری مجدد</value>
   </data>

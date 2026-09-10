@@ -1409,7 +1409,69 @@ namespace ServiceLib.Resx {
                 return ResourceManager.GetString("menuPromotion", resourceCulture);
             }
         }
-        
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+public static string menuSecurityPreset {
+    get {
+        return ResourceManager.GetString("menuSecurityPreset", resourceCulture);
+    }
+}
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+public static string menuAILog {
+    get {
+        return ResourceManager.GetString("menuAILog", resourceCulture);
+    }
+}
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+public static string menuAIChat {
+    get {
+        return ResourceManager.GetString("menuAIChat", resourceCulture);
+    }
+}
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+public static string menuAISetting {
+    get {
+        return ResourceManager.GetString("menuAISetting", resourceCulture);
+    }
+}
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+public static string menuAIFetch {
+    get {
+        return ResourceManager.GetString("menuAIFetch", resourceCulture);
+    }
+}
+
+/// <summary>
+///   本地化的版本。
+/// </summary>
+
+///
+public static string menuAiProductivity {
+ get {
+ return ResourceManager.GetString("menuAiProductivity", resourceCulture);
+}
+}
+
+public static string menuLeakDetection {
+    get {
+        return ResourceManager.GetString("menuLeakDetection", resourceCulture);
+    }
+}
+
         /// <summary>
         ///   查找类似 Part Node Latency Test 的本地化字符串。
         /// </summary>
@@ -1418,7 +1480,7 @@ namespace ServiceLib.Resx {
                 return ResourceManager.GetString("menuProxiesDelaytestPart", resourceCulture);
             }
         }
-        
+
         /// <summary>
         ///   查找类似 Refresh Proxies 的本地化字符串。
         /// </summary>

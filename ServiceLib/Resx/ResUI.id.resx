@@ -420,6 +420,24 @@
   <data name="menuPromotion" xml:space="preserve">
     <value>AI Productivity Tools</value>
   </data>
+  <data name="menuAiProductivity" xml:space="preserve">
+    <value>AI Productivity Tools</value>
+  </data>
+  <data name="menuAISetting" xml:space="preserve">
+    <value>Ambil AI</value>
+  </data>
+  <data name="menuAILog" xml:space="preserve">
+    <value>Log AI</value>
+  </data>
+  <data name="menuAIChat" xml:space="preserve">
+    <value>Obrol AI</value>
+  </data>
+  <data name="menuSecurityPreset" xml:space="preserve">
+    <value>Preset Keamanan</value>
+  </data>
+  <data name="menuLeakDetection" xml:space="preserve">
+    <value>Deteksi Kebocoran</value>
+  </data>
   <data name="menuReload" xml:space="preserve">
     <value>Muat ulang layanan</value>
   </data>

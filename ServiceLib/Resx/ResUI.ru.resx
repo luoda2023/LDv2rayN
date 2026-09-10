@@ -420,6 +420,24 @@
   <data name="menuPromotion" xml:space="preserve">
     <value>AI Productivity Tools</value>
   </data>
+  <data name="menuAiProductivity" xml:space="preserve">
+    <value>AI Productivity Tools</value>
+  </data>
+  <data name="menuAISetting" xml:space="preserve">
+    <value>AI-получение</value>
+  </data>
+  <data name="menuAILog" xml:space="preserve">
+    <value>AI-журнал</value>
+  </data>
+  <data name="menuAIChat" xml:space="preserve">
+    <value>AI-чат</value>
+  </data>
+  <data name="menuSecurityPreset" xml:space="preserve">
+    <value>Безопасный пресет</value>
+  </data>
+  <data name="menuLeakDetection" xml:space="preserve">
+    <value>Обнаружение утечек</value>
+  </data>
   <data name="menuReload" xml:space="preserve">
     <value>Перезапустить службу</value>
   </data>

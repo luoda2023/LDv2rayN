@@ -5,6 +5,7 @@ public class Global
     public const string AppName = "LDv2rayN";
     public const string Author = "LUODA";
     public const string Website = "https://dicad.cn";
+public const string DownloadUrl = "https://download.dicad.cn";
     public const string GithubUrl = "https://github.com";
     public const string GeoUrl = "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/{0}.dat";
     public const string SingboxRulesetUrl = @"https://raw.githubusercontent.com/2dust/sing-box-rules/rule-set-{0}/{1}.srs";

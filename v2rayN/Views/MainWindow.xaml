@@ -192,27 +192,76 @@
                                     Header="{x:Static resx:ResUI.menuRoutingSetting}" /> <MenuItem
  x:Name="menuDNSSetting"
  Height="{StaticResource MenuItemHeight}"
- Header="{x:Static resx:ResUI.menuDNSSetting}" />
- <MenuItem
- x:Name="menuSecurityPreset"
- Height="{StaticResource MenuItemHeight}"
- Header="🛡️ 一键安全配置" />
- <MenuItem
- x:Name="menuAISetting"
- Height="{StaticResource MenuItemHeight}"
- Header="🤖 AI智能获取" />
-        <MenuItem
-            x:Name="menuAILog"
-            Height="{StaticResource MenuItemHeight}"
-            Header="📋 查看 AI 日志" />
-        <MenuItem
-            x:Name="menuAIChat"
-            Height="{StaticResource MenuItemHeight}"
-            Header="💬 AI代理助手" />
-                                <MenuItem
-                                    x:Name="menuLeakDetection"
-                                    Height="{StaticResource MenuItemHeight}"
-                                    Header="🔒 Leak Detection" />
+ Header="{x:Static resx:ResUI.menuDNSSetting}" />                <MenuItem
+                    x:Name="menuSecurityPreset"
+                    Padding="{StaticResource MarginLeftRight8}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuSecurityPreset}">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon
+                                Margin="{StaticResource MarginRight8}"
+                                VerticalAlignment="Center"
+                                Kind="Shield" />
+                            <TextBlock Text="{x:Static resx:ResUI.menuSecurityPreset}" />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
+                <MenuItem
+                    x:Name="menuAISetting"
+                    Padding="{StaticResource MarginLeftRight8}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuAISetting}">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon
+                                Margin="{StaticResource MarginRight8}"
+                                VerticalAlignment="Center"
+                                Kind="RobotOutline" />
+                            <TextBlock Text="{x:Static resx:ResUI.menuAISetting}" />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
+                <MenuItem
+                    x:Name="menuAILog"
+                    Padding="{StaticResource MarginLeftRight8}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuAILog}">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon
+                                Margin="{StaticResource MarginRight8}"
+                                VerticalAlignment="Center"
+                                Kind="FileOutline" />
+                            <TextBlock Text="{x:Static resx:ResUI.menuAILog}" />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
+                <MenuItem
+                    x:Name="menuAIChat"
+                    Padding="{StaticResource MarginLeftRight8}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuAIChat}">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon
+                                Margin="{StaticResource MarginRight8}"
+                                VerticalAlignment="Center"
+                                Kind="MessageTextOutline" />
+                            <TextBlock Text="{x:Static resx:ResUI.menuAIChat}" />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
+                <MenuItem
+                    x:Name="menuLeakDetection"
+                    Padding="{StaticResource MarginLeftRight8}"
+                    AutomationProperties.Name="{x:Static resx:ResUI.menuLeakDetection}">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon
+                                Margin="{StaticResource MarginRight8}"
+                                VerticalAlignment="Center"
+                                Kind="LockOutline" />
+                            <TextBlock Text="{x:Static resx:ResUI.menuLeakDetection}" />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
                                 <MenuItem
                                     x:Name="menuFullConfigTemplate"
                                     Height="{StaticResource MenuItemHeight}"
@@ -280,7 +329,7 @@
             <MenuItem
                 x:Name="menuAiProductivity"
                 Height="{StaticResource MenuItemHeight}"
-                Header="AI生产力工具" />
+                Header="{x:Static resx:ResUI.menuAiProductivity}" />
             </MenuItem>
                         </Menu>
                         <Separator />

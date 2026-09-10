@@ -420,6 +420,24 @@
   <data name="menuPromotion" xml:space="preserve">
     <value>AI Productivity Tools</value>
   </data>
+  <data name="menuAiProductivity" xml:space="preserve">
+    <value>AI Productivity Tools</value>
+  </data>
+  <data name="menuAISetting" xml:space="preserve">
+    <value>AI letöltés</value>
+  </data>
+  <data name="menuAILog" xml:space="preserve">
+    <value>AI napló</value>
+  </data>
+  <data name="menuAIChat" xml:space="preserve">
+    <value>AI csevegés</value>
+  </data>
+  <data name="menuSecurityPreset" xml:space="preserve">
+    <value>Biztonsági preset</value>
+  </data>
+  <data name="menuLeakDetection" xml:space="preserve">
+    <value>Kihagyás-érzékelés</value>
+  </data>
   <data name="menuReload" xml:space="preserve">
     <value>Újratöltés</value>
   </data>

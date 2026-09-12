@@ -708,7 +708,13 @@ public partial class CoreConfigV2rayService
 
             if (!_node.Finalmask.IsNullOrEmpty())
             {
-                streamSettings.finalmask = JsonUtils.ParseJson(_node.Finalmask);
+                // 兜底规范化：库里的老节点可能是在接入 Normalizer 之前导入的，
+                // 坏 fm 会让整份配置被 xray 拒绝（LengthMin can't be 0）。
+                var normalizedFinalmask = FinalmaskNormalizer.Normalize(_node.Finalmask);
+                if (normalizedFinalmask != null)
+                {
+                    streamSettings.finalmask = normalizedFinalmask;
+                }
             }
         }
         catch (Exception ex)
@@ -935,6 +941,13 @@ public partial class CoreConfigV2rayService
         if (configDelays.Count == 0)
         {
             configDelays = ["10-20"];
+        }
+
+        // xray 用 length 字段算 LengthMin，下界 <= 0 时拒绝整份配置。
+        // 用户手填 "0-100" 这类值时退回默认，不能让全局设置毒死所有出站。
+        if (!FinalmaskNormalizer.HasUsableRange(configLengths.FirstOrDefault()))
+        {
+            configLengths = ["50-100"];
         }
 
         var maxSplit = 0;

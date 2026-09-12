@@ -2,37 +2,52 @@
     x:Class="v2rayN.Views.AISettingWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:resx="clr-namespace:ServiceLib.Resx;assembly=ServiceLib"
     Title="AI智能获取设置"
     Width="600"
     Height="500"
     WindowStartupLocation="CenterOwner">
-    <Grid Margin="10">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock
+        <!-- Title -->
+        <StackPanel
             Grid.Row="0"
-            Margin="0,0,0,10"
-            FontSize="16"
-            FontWeight="Bold"
-            Text="🤖 AI智能获取免费VPN节点" />
+            Margin="0,0,0,8"
+            Orientation="Horizontal">
+            <materialDesign:PackIcon
+                Kind="AutoAwesome"
+                Width="20"
+                Height="20"
+                Margin="0,0,8,0"
+                VerticalAlignment="Center" />
+            <TextBlock
+                FontSize="16"
+                FontWeight="Bold"
+                Text="AI智能获取免费VPN节点" />
+        </StackPanel>
 
-        <ScrollViewer Grid.Row="1">
+        <!-- Description -->
+        <TextBlock
+            Grid.Row="1"
+            Margin="0,0,0,12"
+            FontSize="12"
+            Foreground="{DynamicResource MaterialDesignBodyLight}"
+            TextWrapping="Wrap"
+            Text="通过AI自动搜索GitHub上的免费VPN节点，自动验证后添加到分组中" />
+
+        <!-- Form -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <TextBlock
-                    Margin="0,0,0,10"
-                    TextWrapping="Wrap"
-                    Text="通过AI自动搜索GitHub上的免费VPN节点，自动验证后添加到分组中" />
-
-                <Separator Margin="0,10" />
-
-                <Grid Margin="0,10">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -45,142 +60,159 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <!-- Row 0: Enable -->
                     <TextBlock
                         Grid.Row="0"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="启用AI功能" />
                     <CheckBox
                         x:Name="chkAIEnabled"
                         Grid.Row="0"
                         Grid.Column="1"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center" />
 
+                    <!-- Row 1: API URL -->
                     <TextBlock
                         Grid.Row="1"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="API地址" />
                     <TextBox
                         x:Name="txtApiUrl"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="400"
-                        HorizontalAlignment="Left"
-                        Text="http://47.114.75.115:40000/v1" />
+                        Margin="0,6"
+                        HorizontalAlignment="Stretch" />
 
+                    <!-- Row 2: API Key -->
                     <TextBlock
                         Grid.Row="2"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="API密钥" />
                     <PasswordBox
                         x:Name="txtApiKey"
                         Grid.Row="2"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="400"
-                        HorizontalAlignment="Left" />
+                        Margin="0,6"
+                        HorizontalAlignment="Stretch" />
 
+                    <!-- Row 3: Model ID -->
                     <TextBlock
                         Grid.Row="3"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="模型ID" />
                     <TextBox
                         x:Name="txtModelId"
                         Grid.Row="3"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="400"
-                        HorizontalAlignment="Left"
-                        Text="hermesAPI" />
+                        Margin="0,6"
+                        HorizontalAlignment="Stretch" />
 
+                    <!-- Row 4: Group name -->
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="分组名称" />
                     <TextBox
                         x:Name="txtAiGroupRemarks"
                         Grid.Row="4"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="400"
-                        HorizontalAlignment="Left"
-                        Text="AI自动获取" />
+                        Margin="0,6"
+                        HorizontalAlignment="Stretch" />
 
+                    <!-- Row 5: Search interval -->
                     <TextBlock
                         Grid.Row="5"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="搜索间隔(分钟)" />
                     <TextBox
                         x:Name="txtSearchInterval"
                         Grid.Row="5"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="200"
+                        Width="120"
+                        Margin="0,6"
                         HorizontalAlignment="Left"
                         Text="60" />
 
+                    <!-- Row 6: Max nodes -->
                     <TextBlock
                         Grid.Row="6"
                         Grid.Column="0"
-                        Margin="0,5"
+                        Margin="0,6"
                         VerticalAlignment="Center"
                         Text="每次最大节点数" />
                     <TextBox
                         x:Name="txtMaxNodes"
                         Grid.Row="6"
                         Grid.Column="1"
-                        Margin="0,5"
-                        Width="200"
+                        Width="120"
+                        Margin="0,6"
                         HorizontalAlignment="Left"
                         Text="50" />
                 </Grid>
 
-                <Separator Margin="0,10" />
+<Separator Margin="0,12" />
+</StackPanel>
+</ScrollViewer>
 
-                <Button
-                    x:Name="btnTestFetch"
-                    Width="200"
-                    Margin="0,10"
-                    HorizontalAlignment="Left"
-                    Content="🔍 立即测试AI获取" />
+<!-- Bottom action bar: test button + status + OK/Cancel on one row -->
+<DockPanel
+Grid.Row="3"
+Margin="0,12,0,0"
+LastChildFill="True">
+<Button
+x:Name="btnTestFetch"
+DockPanel.Dock="Left"
+Margin="0,0,12,0"
+Style="{StaticResource SecondaryButton}">
+<StackPanel Orientation="Horizontal">
+<materialDesign:PackIcon
+Kind="Magnify"
+Width="16"
+Height="16"
+Margin="0,0,6,0"
+VerticalAlignment="Center" />
+<TextBlock Text="立即测试AI获取" VerticalAlignment="Center" />
+</StackPanel>
+</Button>
 
-                <TextBlock
-                    x:Name="txtStatus"
-                    Margin="0,10"
-                    Text="就绪"
-                    TextWrapping="Wrap" />
-            </StackPanel>
-        </ScrollViewer>
+<TextBlock
+x:Name="txtStatus"
+DockPanel.Dock="Left"
+Margin="0,0,12,0"
+VerticalAlignment="Center"
+Text="就绪"
+TextWrapping="NoWrap" />
 
-        <StackPanel
-            Grid.Row="2"
-            Margin="0,10,0,0"
-            HorizontalAlignment="Center"
-            Orientation="Horizontal">
-            <Button
-                x:Name="btnSave"
-                Width="100"
-                Margin="0,0,10,0"
-                Content="{x:Static resx:ResUI.TbConfirm}"
-                IsDefault="True" />
-            <Button
-                x:Name="btnCancel"
-                Width="100"
-                Content="{x:Static resx:ResUI.TbCancel}"
-                IsCancel="True" />
-        </StackPanel>
+<StackPanel
+HorizontalAlignment="Right"
+Orientation="Horizontal">
+<Button
+x:Name="btnSave"
+Width="100"
+Margin="0,0,8,0"
+Content="{x:Static resx:ResUI.TbConfirm}"
+IsDefault="True"
+Style="{StaticResource DefButton}" />
+<Button
+x:Name="btnCancel"
+Width="100"
+Content="{x:Static resx:ResUI.TbCancel}"
+IsCancel="True"
+Style="{StaticResource SecondaryButton}" />
+</StackPanel>
+</DockPanel>
     </Grid>
 </Window>

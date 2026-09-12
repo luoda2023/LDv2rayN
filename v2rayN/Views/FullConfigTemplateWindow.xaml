@@ -35,7 +35,7 @@
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
 
         <TabControl HorizontalContentAlignment="Left">
@@ -63,7 +63,7 @@
                             Style="{StaticResource ToolbarTextBlock}">
                             <Hyperlink Click="linkFullConfigTemplateDoc_Click">
                                 <TextBlock Text="{x:Static resx:ResUI.TbRayFullConfigTemplateDesc}" />
-                                <materialDesign:PackIcon Kind="Link" />
+                                <materialDesign:PackIcon Kind="OpenInNew" />
                             </Hyperlink>
                         </TextBlock>
 
@@ -164,7 +164,7 @@
                             Style="{StaticResource ToolbarTextBlock}">
                             <Hyperlink Click="linkFullConfigTemplateDoc_Click">
                                 <TextBlock Text="{x:Static resx:ResUI.TbSBFullConfigTemplateDesc}" />
-                                <materialDesign:PackIcon Kind="Link" />
+                                <materialDesign:PackIcon Kind="OpenInNew" />
                             </Hyperlink>
                         </TextBlock>
 

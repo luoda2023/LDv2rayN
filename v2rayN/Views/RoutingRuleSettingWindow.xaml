@@ -25,7 +25,7 @@
                 VerticalAlignment="Center"
                 ClipToBounds="True"
                 Style="{StaticResource MaterialDesignToolBar}">
-                <Button x:Name="menuRuleAdd">
+                <Button x:Name="menuRuleAdd" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
@@ -35,32 +35,32 @@
                     </StackPanel>
                 </Button>
                 <Separator />
-                <Button x:Name="menuImportRulesFromFile">
+                <Button x:Name="menuImportRulesFromFile" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
                             VerticalAlignment="Center"
-                            Kind="Import" />
+                            Kind="FileImport" />
                         <TextBlock Style="{StaticResource ToolbarTextBlock}" Text="{x:Static resx:ResUI.menuImportRulesFromFile}" />
                     </StackPanel>
                 </Button>
                 <Separator />
-                <Button x:Name="menuImportRulesFromClipboard">
+                <Button x:Name="menuImportRulesFromClipboard" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
                             VerticalAlignment="Center"
-                            Kind="Import" />
+                            Kind="ClipboardText" />
                         <TextBlock Style="{StaticResource ToolbarTextBlock}" Text="{x:Static resx:ResUI.menuImportRulesFromClipboard}" />
                     </StackPanel>
                 </Button>
                 <Separator />
-                <Button x:Name="menuImportRulesFromUrl">
+                <Button x:Name="menuImportRulesFromUrl" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
                             VerticalAlignment="Center"
-                            Kind="Import" />
+                            Kind="LinkBox" />
                         <TextBlock Style="{StaticResource ToolbarTextBlock}" Text="{x:Static resx:ResUI.menuImportRulesFromUrl}" />
                     </StackPanel>
                 </Button>
@@ -84,7 +84,7 @@
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
 
         <Grid Margin="{StaticResource Margin8}" DockPanel.Dock="Top">
@@ -208,7 +208,7 @@
                 Grid.Column="2"
                 Margin="{StaticResource MarginLeftRight4}"
                 Content="{x:Static resx:ResUI.TbBrowse}"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
 
             <TextBlock
                 Grid.Row="4"
@@ -218,7 +218,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkCustomRulesetPath4Singbox">
                     <TextBlock Text="{x:Static resx:ResUI.LvCustomRulesetPath4Singbox}" />
-                    <materialDesign:PackIcon Kind="Link" />
+                    <materialDesign:PackIcon Kind="OpenInNew" />
                 </Hyperlink>
             </TextBlock>
             <TextBox
@@ -237,7 +237,7 @@
                 Grid.Column="2"
                 Margin="{StaticResource MarginLeftRight4}"
                 Content="{x:Static resx:ResUI.TbBrowse}"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </Grid>
 
         <TabControl x:Name="tabAdvanced">

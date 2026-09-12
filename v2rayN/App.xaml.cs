@@ -1,3 +1,4 @@
+using System.Threading;
 using v2rayN.Manager;
 using v2rayN.Views;
 
@@ -9,6 +10,7 @@ namespace v2rayN;
 public partial class App
 {
     public static EventWaitHandle ProgramStarted;
+ private static Mutex _singleInstanceMutex;
 
     public App()
     {
@@ -23,15 +25,21 @@ public partial class App
     /// <param name="e"></param>
     protected override void OnStartup(StartupEventArgs e)
     {
-        var exePathKey = Utils.GetMd5(Utils.GetExePath());
+ var exePathKey = Utils.GetMd5(Utils.GetExePath());
 
-        ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out var bCreatedNew);
-        if (!bCreatedNew)
-        {
-            ProgramStarted.Set();
-            Environment.Exit(0);
-            return;
-        }
+ // Mutex 做第一道闸门：进程崩溃时 OS 自动释放，不会残留
+ // EventWaitHandle 做第二道：给已运行实例发信号弹窗
+ _singleInstanceMutex = new Mutex(true, "LDv2rayN_SingleInstance_" + exePathKey, out var mutexCreatedNew);
+ if (!mutexCreatedNew)
+ {
+ // 已有实例运行——发信号让它弹到前台，然后自己退出
+ ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out _);
+ ProgramStarted.Set();
+ Environment.Exit(0);
+ return;
+ }
+
+ ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out _);
 
         if (!AppManager.Instance.InitApp())
         {

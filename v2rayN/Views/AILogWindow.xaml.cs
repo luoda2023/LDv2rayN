@@ -84,7 +84,12 @@ public partial class AILogWindow : Window
                 {
                     txtApiUrl.Text = ai.ApiUrl ?? "(未配置)";
                     txtModel.Text = ai.ModelId ?? "(未配置)";
-                    txtInterval.Text = $"{Math.Max(ai.AutoCrawlIntervalMinutes, 5)} 分钟 / 次";
+                    // 这个字段在 AISchedulerService 里被当作「一天里的第几小时」用（0-23），
+                    // 界面原来写"分钟/次"是错的，会让人以为设成 120 就是每 2 小时一次。
+                    var hour = (ai.AutoCrawlIntervalMinutes >= 0 && ai.AutoCrawlIntervalMinutes <= 23)
+                        ? ai.AutoCrawlIntervalMinutes
+                        : 3;
+                    txtInterval.Text = $"每天 {hour:00}:00 采集一次";
                     txtGroup.Text = ai.AiGroupRemarks ?? "(未配置)";
                 }
             }
@@ -103,13 +108,15 @@ public partial class AILogWindow : Window
 
     private static string FormatProtoMap(Dictionary<string, int> map)
     {
-        if (map.Count == 0) return string.Empty;
+        if (map.Count == 0)
+            return string.Empty;
         return string.Join("  ", map.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}"));
     }
 
     private static string FormatUtc(DateTime utc)
     {
-        if (utc == DateTime.MinValue) return "从未";
+        if (utc == DateTime.MinValue)
+            return "从未";
         var local = utc.ToLocalTime();
         return local.ToString("yyyy-MM-dd HH:mm:ss");
     }
@@ -120,7 +127,8 @@ public partial class AILogWindow : Window
         try
         {
             var logDir = Utils.GetLogPath();
-            if (!Directory.Exists(logDir)) return result;
+            if (!Directory.Exists(logDir))
+                return result;
 
             // Read today's log (LogCrypto writes one file per day)
             var files = Directory.GetFiles(logDir, "*.txt")
@@ -132,7 +140,8 @@ public partial class AILogWindow : Window
                 try
                 {
                     var lines = LogCrypto.DecryptFile(file);
-                    if (lines == null) continue;
+                    if (lines == null)
+                        continue;
 
                     var matches = lines
                         .Where(l => l.Contains(AiLogTag, StringComparison.OrdinalIgnoreCase)

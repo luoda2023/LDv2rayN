@@ -102,32 +102,24 @@ public sealed class AppManager
     {
         Logging.SaveLog($"v2rayN start up | {Utils.GetRuntimeInfo()}");
         Logging.LoggingEnabled(_config.GuiItem.EnableLog);            // First determine the port value
-            _ = StatePort;
-            _ = StatePort2;
+        _ = StatePort;
+        _ = StatePort2;
 
-            Task.Run(async () =>
-            {
-                await MigrateProfileExtra();
-            }).Wait();
+        Task.Run(async () =>
+        {
+            await MigrateProfileExtra();
+        }).Wait();
 
-            // Auto-download Xray-core if missing — runs on a background task.
-            CoreAutoDownloader.CheckAndDownloadXray();
+        // Auto-download Xray-core if missing — runs on a background task.
+        CoreAutoDownloader.CheckAndDownloadXray();
 
-            // One-shot migration: default-enable AI auto-crawl for users whose
-            // saved config pre-dates this change (or has AIConfigItem missing).
-            var aiCfg = _config.AIConfigItem;
-            if (aiCfg == null)
-            {
-                aiCfg = new AIConfigItem();
-                _config.AIConfigItem = aiCfg;
-            }
-            else if (!aiCfg.AutoCrawlEnabled)
-            {
-                aiCfg.AutoCrawlEnabled = true;
-            }
+        // 不再强行把 AutoCrawlEnabled 改成 true：那样用户关掉自动采集后，
+        // 每次启动都会被重新打开，设置等于失效。新装用户由 AIConfigItem 的
+        // 默认值（true）覆盖即可，存量用户保持自己的选择。
+        _config.AIConfigItem ??= new AIConfigItem();
 
-            // Start AI auto-crawl scheduler if enabled
-            AISchedulerService.Start(_config);
+        // Start AI auto-crawl scheduler if enabled
+        AISchedulerService.Start(_config);
 
         // Start the external AI API server if enabled
         AiApiServer.Start(_config);
@@ -140,74 +132,81 @@ public sealed class AppManager
         _statePort = null;
         _statePort2 = null;
         return true;
-    }        public async Task AppExitAsync(bool needShutdown)
+    }
+    public async Task AppExitAsync(bool needShutdown)
+    {
+        var sw = Stopwatch.StartNew();
+        // Also write plaintext trace to a known location so users can inspect it
+        // without decrypting the main log (LogCrypto).
+        var tracePath = System.IO.Path.Combine(
+            @"D:\LUODA\LDv2rayN", "exit_trace.log");
+        void Mark(string what)
         {
-            var sw = Stopwatch.StartNew();
-            // Also write plaintext trace to a known location so users can inspect it
-            // without decrypting the main log (LogCrypto).
-            var tracePath = System.IO.Path.Combine(
-                @"D:\LUODA\LDv2rayN", "exit_trace.log");
-            void Mark(string what)
-            {
-                var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExit [{sw.ElapsedMilliseconds}ms] {what}";
-                Logging.SaveLog(line);
-                try { System.IO.File.AppendAllText(tracePath, line + Environment.NewLine); } catch { }
-            }
+            var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExit [{sw.ElapsedMilliseconds}ms] {what}";
+            Logging.SaveLog(line);
             try
+            { System.IO.File.AppendAllText(tracePath, line + Environment.NewLine); }
+            catch { }
+        }
+        try
+        {
+            Mark("Begin");
+
+            await SysProxyHandler.UpdateSysProxy(_config, true);
+            Mark("UpdateSysProxy");
+
+            AppEvents.AppExitRequested.Publish();
+            await Task.Delay(50); //Wait for AppExitRequested to be processed
+            Mark("AppExitRequested + 50ms");
+
+            await ConfigHandler.SaveConfig(_config);
+            Mark("SaveConfig");
+
+            await ProfileExManager.Instance.SaveTo();
+            Mark("ProfileEx.SaveTo");
+
+            await StatisticsManager.Instance.SaveTo();
+            Mark("Statistics.SaveTo");
+
+            await CoreManager.Instance.CoreStop();
+            Mark("CoreStop");
+
+            // Kill Switch: ensure firewall rules are removed on exit
+            await KillSwitchHandler.ForceDeactivate();
+            Mark("KillSwitch.Deactivate");
+
+            // Stop AI auto-crawl scheduler
+            AISchedulerService.Stop();
+            Mark("AIScheduler.Stop");
+
+            // Stop external AI API server
+            AiApiServer.Stop();
+            Mark("AiApiServer.Stop");
+
+            StatisticsManager.Instance.Close();
+            Mark("Statistics.Close");
+
+            Logging.SaveLog($"AppExitAsync End (total {sw.ElapsedMilliseconds}ms)");
+            try
+            { System.IO.File.AppendAllText(tracePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExitAsync End (total {sw.ElapsedMilliseconds}ms){Environment.NewLine}"); }
+            catch { }
+        }
+        catch (Exception ex)
+        {
+            var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExitAsync EXCEPTION at {sw.ElapsedMilliseconds}ms: {ex}";
+            Logging.SaveLog(line);
+            try
+            { System.IO.File.AppendAllText(tracePath, line + Environment.NewLine); }
+            catch { }
+        }
+        finally
+        {
+            if (needShutdown)
             {
-                Mark("Begin");
-
-                await SysProxyHandler.UpdateSysProxy(_config, true);
-                Mark("UpdateSysProxy");
-
-                AppEvents.AppExitRequested.Publish();
-                await Task.Delay(50); //Wait for AppExitRequested to be processed
-                Mark("AppExitRequested + 50ms");
-
-                await ConfigHandler.SaveConfig(_config);
-                Mark("SaveConfig");
-
-                await ProfileExManager.Instance.SaveTo();
-                Mark("ProfileEx.SaveTo");
-
-                await StatisticsManager.Instance.SaveTo();
-                Mark("Statistics.SaveTo");
-
-                await CoreManager.Instance.CoreStop();
-                Mark("CoreStop");
-
-                // Kill Switch: ensure firewall rules are removed on exit
-                await KillSwitchHandler.ForceDeactivate();
-                Mark("KillSwitch.Deactivate");
-
-                // Stop AI auto-crawl scheduler
-                AISchedulerService.Stop();
-                Mark("AIScheduler.Stop");
-
-                // Stop external AI API server
-                AiApiServer.Stop();
-                Mark("AiApiServer.Stop");
-
-                StatisticsManager.Instance.Close();
-                Mark("Statistics.Close");
-
-                Logging.SaveLog($"AppExitAsync End (total {sw.ElapsedMilliseconds}ms)");
-                try { System.IO.File.AppendAllText(tracePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExitAsync End (total {sw.ElapsedMilliseconds}ms){Environment.NewLine}"); } catch { }
-            }
-            catch (Exception ex)
-            {
-                var line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} AppExitAsync EXCEPTION at {sw.ElapsedMilliseconds}ms: {ex}";
-                Logging.SaveLog(line);
-                try { System.IO.File.AppendAllText(tracePath, line + Environment.NewLine); } catch { }
-            }
-            finally
-            {
-                if (needShutdown)
-                {
-                    Shutdown(false);
-                }
+                Shutdown(false);
             }
         }
+    }
 
     public void Shutdown(bool byUser)
     {

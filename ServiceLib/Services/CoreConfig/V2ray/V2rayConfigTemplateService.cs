@@ -270,6 +270,31 @@ public partial class CoreConfigV2rayService
         }
     }
 
+    /// <summary>
+    /// 给代理出站启用 TCP keepalive。
+    /// NAT 网关/防火墙会静默丢弃空闲 TCP 会话——用户遇到的「连接放着几分钟回来就断了」
+    /// 多数是这个原因。空闲 120 秒后开始发 keepalive 探测、每 60 秒一次，
+    /// 让会话保持活跃；不覆盖用户/节点已有的显式设置。
+    /// </summary>
+    private void ApplyOutboundKeepAlive()
+    {
+        foreach (var outbound in _coreConfig.outbounds ?? [])
+        {
+            if (!ShouldBindNet(outbound))
+            {
+                continue;
+            }
+            if (outbound.streamSettings is null)
+            {
+                continue;
+            }
+
+            outbound.streamSettings.sockopt ??= new();
+            outbound.streamSettings.sockopt.tcpKeepAliveIdle ??= 120;
+            outbound.streamSettings.sockopt.tcpKeepAliveInterval ??= 60;
+        }
+    }
+
     private static bool ShouldBindNet(Outbounds4Ray outbound)
     {
         if (outbound.protocol is "freedom" or "blackhole" or "dns" or "loopback")

@@ -32,22 +32,18 @@
 
             <Button
                 x:Name="btnConnectionCloseAll"
-                Width="24"
-                Height="24"
                 Margin="{StaticResource MarginLeftRight8}"
-                Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                Style="{StaticResource IconButton}"
                 ToolTip="{x:Static resx:ResUI.menuConnectionCloseAll}">
-                <materialDesign:PackIcon VerticalAlignment="Center" Kind="Close" />
+                <materialDesign:PackIcon VerticalAlignment="Center" Kind="LinkVariantOff" />
             </Button>
 
             <Button
                 x:Name="btnAutofitColumnWidth"
-                Width="24"
-                Height="24"
                 Margin="{StaticResource MarginLeftRight8}"
-                Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                Style="{StaticResource IconButton}"
                 ToolTip="{x:Static resx:ResUI.menuProfileAutofitColumnWidth}">
-                <materialDesign:PackIcon VerticalAlignment="Center" Kind="ArrowSplitVertical" />
+                <materialDesign:PackIcon VerticalAlignment="Center" Kind="TableColumnWidth" />
             </Button>
 
             <TextBlock

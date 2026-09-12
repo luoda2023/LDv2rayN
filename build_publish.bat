@@ -81,6 +81,23 @@ if exist "%WINX64%" (
     rmdir /s /q "%WINX64%"
 )
 
+REM -- Seed geo data files -----------------------------------------------------
+REM dotnet publish does NOT carry geosite.dat/geoip.dat: they are downloaded at
+REM runtime into <out>\bin\. Without them the core exits immediately with
+REM `failed to open file: geosite.dat` (nodes show latency but nothing connects).
+REM Copy them over from the Debug output if it has them, so the published folder
+REM is usable straight away. (The app also self-heals at startup if still missing.)
+set "DBGBIN=%ROOT%v2rayN\bin\Debug\net10.0-windows10.0.19041.0\bin"
+if not exist "%OUT%\bin" mkdir "%OUT%\bin"
+for %%F in (geosite.dat geoip.dat) do (
+    if exist "%DBGBIN%\%%F" (
+        if not exist "%OUT%\bin\%%F" (
+            echo Seeding %%F from Debug output ...
+            copy /y "%DBGBIN%\%%F" "%OUT%\bin\%%F" >nul
+        )
+    )
+)
+
 REM -- Verify -----------------------------------------------------------------
 echo.
 echo [3/3] verifying output ...

@@ -29,30 +29,34 @@
                     FontSize="{DynamicResource StdFontSize}"
                     ItemContainerStyle="{StaticResource MyChipListBoxItem}"
                     Style="{StaticResource MaterialDesignChoiceChipPrimaryOutlineListBox}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Remarks}" />
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+<ListBox.ItemTemplate>
+<DataTemplate>
+<TextBlock Text="{Binding Remarks}" />
+</DataTemplate>
+</ListBox.ItemTemplate>
+<ListBox.ContextMenu>
+<ContextMenu Style="{StaticResource DefContextMenu}">
+<MenuItem x:Name="menuGroupDelete" Height="{StaticResource MenuItemHeight}" Header="{x:Static resx:ResUI.menuSubDelete}" />
+<MenuItem x:Name="menuGroupRemoveInvalid" Height="{StaticResource MenuItemHeight}" Header="{x:Static resx:ResUI.menuRemoveInvalidServerResult}" />
+<Separator />
+<MenuItem x:Name="menuGroupSpeed" Height="{StaticResource MenuItemHeight}" Header="{x:Static resx:ResUI.menuSpeedServer}" />
+</ContextMenu>
+</ListBox.ContextMenu>
+</ListBox>
 
                 <Button
                     x:Name="btnEditSub"
-                    Width="30"
-                    Height="30"
                     Margin="{StaticResource MarginLeftRight4}"
                     AutomationProperties.Name="{x:Static resx:ResUI.menuSubEdit}"
-                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    Style="{StaticResource IconButton}"
                     ToolTip="{x:Static resx:ResUI.menuSubEdit}">
-                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="Edit" />
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="Pencil" />
                 </Button>
                 <Button
                     x:Name="btnAddSub"
-                    Width="30"
-                    Height="30"
                     Margin="{StaticResource MarginLeftRight4}"
                     AutomationProperties.Name="{x:Static resx:ResUI.menuSubAdd}"
-                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    Style="{StaticResource IconButton}"
                     ToolTip="{x:Static resx:ResUI.menuSubAdd}">
                     <materialDesign:PackIcon VerticalAlignment="Center" Kind="Plus" />
                 </Button>
@@ -69,30 +73,24 @@
 
                 <Button
                     x:Name="btnAutofitColumnWidth"
-                    Width="30"
-                    Height="30"
                     Margin="{StaticResource MarginLeftRight4}"
                     AutomationProperties.Name="{x:Static resx:ResUI.menuProfileAutofitColumnWidth}"
-                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    Style="{StaticResource IconButton}"
                     ToolTip="{x:Static resx:ResUI.menuProfileAutofitColumnWidth}">
-                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="ArrowSplitVertical" />
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="TableColumnWidth" />
                 </Button>
 
                 <Button
                     x:Name="btnFastRealPing"
-                    Width="30"
-                    Height="30"
                     Margin="{StaticResource MarginLeftRight4}"
-                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    Style="{StaticResource IconButton}"
                     ToolTip="{x:Static resx:ResUI.menuFastRealPing}">
                     <materialDesign:PackIcon VerticalAlignment="Center" Kind="LightningBolt" />
                 </Button>
                 <Button
                     x:Name="menuMixedTestServer"
-                    Width="30"
-                    Height="30"
                     Margin="{StaticResource MarginLeftRight4}"
-                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    Style="{StaticResource IconButton}"
                     ToolTip="{x:Static resx:ResUI.menuMixedTestServer}">
                     <materialDesign:PackIcon VerticalAlignment="Center" Kind="Speedometer" />
                 </Button>
@@ -148,11 +146,9 @@
                             Height="{StaticResource MenuItemHeight}"
                             Header="{x:Static resx:ResUI.menuRemoveInvalidServerResult}" />
                         <Separator />
-                        <MenuItem
-                            x:Name="menuTcpingServer"
-                            Height="{StaticResource MenuItemHeight}"
-                            Header="{x:Static resx:ResUI.menuTcpingServer}"
-                            InputGestureText="Ctrl+O" />
+                        <!--  Tcping 菜单已移除：TCP 端口通≠节点可用，它写入的「延迟」
+                             会让用户误以为节点能翻墙而实际连不上。
+                             延迟列现在只接受真实穿透测试（RealPing/测速）的结果。  -->
                         <MenuItem
                             x:Name="menuRealPingServer"
                             Height="{StaticResource MenuItemHeight}"

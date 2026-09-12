@@ -10,11 +10,13 @@ using v2rayN.Manager;
 namespace v2rayN.Views;
 
 public partial class MainWindow
-{        private static Config _config;
-        private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
+{
+    private static Config _config;
+    private readonly SingleReplaceableDisposable _layoutBindingsDisposable = new();
     private BackupAndRestoreView? _backupAndRestoreView;
     private AIChatWindow? _aiChatWindow;
     private System.Windows.Threading.DispatcherTimer? _aiRingTimer;
+    private DateTime _aiAnimStart;
 
     public MainWindow()
     {
@@ -34,7 +36,6 @@ public partial class MainWindow
 
         this.WhenActivated(disposables =>
         {
-            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated entered\n");
             //servers
             this.BindCommand(ViewModel, vm => vm.AddVmessServerCmd, v => v.menuAddVmessServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddVlessServerCmd, v => v.menuAddVlessServer).DisposeWith(disposables);
@@ -54,7 +55,6 @@ public partial class MainWindow
             this.BindCommand(ViewModel, vm => vm.AddServerViaClipboardCmd, v => v.menuAddServerViaClipboard).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddServerViaScanCmd, v => v.menuAddServerViaScan).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddServerViaImageCmd, v => v.menuAddServerViaImage).DisposeWith(disposables);
-            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} marker1 after servers bindings\n");
 
             //sub
             this.BindCommand(ViewModel, vm => vm.SubSettingCmd, v => v.menuSubSetting).DisposeWith(disposables);
@@ -67,141 +67,164 @@ public partial class MainWindow
             this.BindCommand(ViewModel, vm => vm.OptionSettingCmd, v => v.menuOptionSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RoutingSettingCmd, v => v.menuRoutingSetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.DNSSettingCmd, v => v.menuDNSSetting).DisposeWith(disposables);
-            System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} marker2 after DNS binding, before menuAISetting\n");
 
             // 智能获取：API 有效时后台启动调度器，不再弹设置窗口；否则打开设置
             menuAISetting.Click += (s, e) =>
  {
- // 设置入口：无论配置是否有效，都打开设置窗口，让用户能看到/修改
- // API 地址、密钥、模型、分组、间隔等。之前改成"API 有效就不弹窗"
- // 导致用户找不到配置入口。
- try
- {
- var vm = new ServiceLib.ViewModels.AISettingViewModel();
- var dialog = new AISettingWindow { DataContext = vm };
- dialog.ShowDialog(this);
+     // 设置入口：无论配置是否有效，都打开设置窗口，让用户能看到/修改
+     // API 地址、密钥、模型、分组、间隔等。之前改成"API 有效就不弹窗"
+     // 导致用户找不到配置入口。
+     try
+     {
+         var vm = new ServiceLib.ViewModels.AISettingViewModel();
+         var dialog = new AISettingWindow { DataContext = vm };
+         dialog.ShowDialog(this);
 
- // 从设置窗口回来后，如果配置有效则后台启动调度器
- var config = AppManager.Instance.Config;
- var ai = config.AIConfigItem;
- if (ai is { Enabled: true }
- && !string.IsNullOrWhiteSpace(ai.ApiUrl)
- && !string.IsNullOrWhiteSpace(ai.ApiKey)
- && !string.IsNullOrWhiteSpace(ai.ModelId))
- {
- _ = ServiceLib.Handler.ConfigHandler.SaveConfig(config);
- ServiceLib.Services.AISchedulerService.Restart(config);
- }
- }
- catch (Exception ex)
- {
-                System.Diagnostics.Debug.WriteLine($"menuAISetting failed: {ex}");            MessageBox.Show(
-                $"AI 启动失败：{ex.Message}",
-                "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    };
-    // 一键安全配置：把 TUN / Kill Switch / IPv6 防泄露 / DNS 走代理 / 全局代理
-    // 打包成预设一次性应用，避免用户在多处设置里漏配导致真实 IP 泄露。
-    menuSecurityPreset.Click += async (s, e) =>
-    {
-        try
-        {
-            var result = MessageBox.Show(
-                "将应用以下安全预设：\n\n" +
-                "• 开启 TUN 模式（全流量走代理）\n" +
-                "• 开启 Kill Switch（断线即阻断全部流量）\n" +
-                "• 开启严格路由\n" +
-                "• 关闭 IPv6（防止 IPv6 泄露真实 IP）\n" +
-                "• 系统代理设为全局代理\n\n" +
-                "应用后会重启核心服务，确定继续？",
-                "🛡️ 一键安全配置", MessageBoxButton.OKCancel, MessageBoxImage.Information);
-            if (result != MessageBoxResult.OK) return;
-
-            var config = AppManager.Instance.Config;
-
-            // TUN + Kill Switch + StrictRoute + IPv6 off（IPv6 泄露是真实 IP 泄露的常见途径）
-            config.TunModeItem.EnableTun = true;
-            config.TunModeItem.AutoRoute = true;
-            config.TunModeItem.StrictRoute = true;
-            config.TunModeItem.EnableKillSwitch = true;
-            config.TunModeItem.EnableIPv6Address = false;
-
-            // 全局代理（ForcedChange = 系统代理指向本地代理端口）
-            config.SystemProxyItem.SysProxyType = ServiceLib.Enums.ESysProxyType.ForcedChange;
-            config.SystemProxyItem.NotProxyLocalAddress = true;
-
-            _ = await ServiceLib.Handler.ConfigHandler.SaveConfig(config);
-
-            // 重启核心让 TUN/KillSwitch 生效
-            try
+         // 从设置窗口回来后，如果配置有效则后台启动调度器
+         var config = AppManager.Instance.Config;
+         var ai = config.AIConfigItem;
+         if (ai is { Enabled: true }
+         && !string.IsNullOrWhiteSpace(ai.ApiUrl)
+         && !string.IsNullOrWhiteSpace(ai.ApiKey)
+         && !string.IsNullOrWhiteSpace(ai.ModelId))
+         {
+             _ = ServiceLib.Handler.ConfigHandler.SaveConfig(config);
+             ServiceLib.Services.AISchedulerService.Restart(config);
+         }
+     }
+     catch (Exception ex)
+     {
+         System.Diagnostics.Debug.WriteLine($"menuAISetting failed: {ex}");
+         MessageBox.Show(
+         $"AI 启动失败：{ex.Message}",
+         "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+     }
+ };
+            // 一键安全配置：把 TUN / Kill Switch / IPv6 防泄露 / DNS 走代理 / 全局代理
+            // 打包成预设一次性应用，避免用户在多处设置里漏配导致真实 IP 泄露。
+            menuSecurityPreset.Click += async (s, e) =>
             {
-                await CoreManager.Instance.CoreStop();
-                await CoreManager.Instance.LoadCore(null, null);
-            }
-            catch (Exception ex)
-            {
-                Logging.SaveLog($"SecurityPreset restart core failed: {ex.Message}");
-            }
-
-            MessageBox.Show(
-                "✅ 安全预设已应用！\n\n" +
-                "TUN 模式 + Kill Switch + 严格路由已开启，IPv6 已关闭，系统代理已设为全局。\n\n" +
-                "建议到「设置 → Leak Detection」跑一次泄露检测确认真实 IP 已隐藏。",
-                "🛡️ 一键安全配置", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (Exception ex)
-        {
-            Logging.SaveLog($"SecurityPreset failed: {ex}");
-            MessageBox.Show($"安全配置失败：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    };
-    menuAILog.Click += (s, e) =>
-    {
-        var dialog = new AILogWindow();
-        dialog.ShowDialog(this);
-    };
-    // Floating panel: Show() instead of ShowDialog() so the main window stays usable.
-    // Shared between the menu item, the floating bottom-right button, and the tray
-    // icon left-click — only one instance.
-    System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated binding AI handlers\n");
-    var toggleAi = ToggleAiChatPanel;
-    menuAIChat.Click += (s, e) => toggleAi();
-    btnAiAssistant.Click += (s, e) => toggleAi();
-    System.IO.File.AppendAllText(@"D:\LUODA\LDv2rayN\ai_toggle_debug.log", $"{DateTime.Now:HH:mm:ss.fff} WhenActivated AI handlers bound\n");
-
-    // Tray icon left-click opens the AI assistant (plus shows the main window).
-    ViewModel.StatusBarViewModel?.OpenAiChatRequested.AsObservable()
-        .Subscribe(_ => toggleAi())
-        .DisposeWith(disposables);
-
-    // AI ring progress: subscribe to AISchedulerService.RunCompleted
-    ServiceLib.Services.AISchedulerService.RunCompleted += (msg, count) =>
-    {
-        Dispatcher.BeginInvoke(() => IsAIProcessing = false);
-    };
-    ServiceLib.Services.AISchedulerService.IsBusyChanged += (busy) =>
-    {
-        Dispatcher.BeginInvoke(() => IsAIProcessing = busy);
-    };
-    menuLeakDetection.Click += (s, e) =>
-    {
-        var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
-        var dialog = new LeakDetectionWindow { DataContext = vm };
-        dialog.ShowDialog(this);
-    };                menuPromotion.Click += (s, e) =>
+                try
                 {
-                    ProcUtils.ProcessStart(Global.Website);
-                };
-                menuAiProductivity.Click += (s, e) =>
-                {
+                    var result = MessageBox.Show(
+                        "将应用以下安全预设：\n\n" +
+                        "• 开启 TUN 模式（全流量走代理）\n" +
+                        "• 开启 Kill Switch（断线即阻断全部流量）\n" +
+                        "• 开启严格路由\n" +
+                        "• 关闭 IPv6（防止 IPv6 泄露真实 IP）\n" +
+                        "• 系统代理设为全局代理\n\n" +
+                        "应用后会重启核心服务，确定继续？",
+                        "🛡️ 一键安全配置", MessageBoxButton.OKCancel, MessageBoxImage.Information);
+                    if (result != MessageBoxResult.OK)
+                        return;
+
+                    var config = AppManager.Instance.Config;
+
+                    // TUN + Kill Switch + StrictRoute + IPv6 off（IPv6 泄露是真实 IP 泄露的常见途径）
+                    config.TunModeItem.EnableTun = true;
+                    config.TunModeItem.AutoRoute = true;
+                    config.TunModeItem.StrictRoute = true;
+                    config.TunModeItem.EnableKillSwitch = true;
+                    config.TunModeItem.EnableIPv6Address = false;
+
+                    // 全局代理（ForcedChange = 系统代理指向本地代理端口）
+                    config.SystemProxyItem.SysProxyType = ServiceLib.Enums.ESysProxyType.ForcedChange;
+                    config.SystemProxyItem.NotProxyLocalAddress = true;
+
+                    _ = await ServiceLib.Handler.ConfigHandler.SaveConfig(config);
+
+                    // 重启核心让 TUN/KillSwitch 生效
                     try
                     {
-                        ProcUtils.ProcessStart(Global.DownloadUrl);
+                        await CoreManager.Instance.CoreStop();
+                        await CoreManager.Instance.LoadCore(null, null);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Logging.SaveLog($"SecurityPreset restart core failed: {ex.Message}");
                     }
-                };
+
+                    MessageBox.Show(
+                        "✅ 安全预设已应用！\n\n" +
+                        "TUN 模式 + Kill Switch + 严格路由已开启，IPv6 已关闭，系统代理已设为全局。\n\n" +
+                        "建议到「设置 → Leak Detection」跑一次泄露检测确认真实 IP 已隐藏。",
+                        "🛡️ 一键安全配置", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    Logging.SaveLog($"SecurityPreset failed: {ex}");
+                    MessageBox.Show($"安全配置失败：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            };
+            menuAILog.Click += (s, e) =>
+            {
+                var dialog = new AILogWindow();
+                dialog.ShowDialog(this);
+            };
+            // Floating panel: Show() instead of ShowDialog() so the main window stays usable.
+            // Shared between the menu item, the floating bottom-right button, and the tray
+            // icon left-click — only one instance.
+            var toggleAi = ToggleAiChatPanel;
+            menuAIChat.Click += (s, e) => toggleAi();
+            btnAiAssistant.Click += (s, e) => toggleAi();
+
+            // Tray icon left-click opens the AI assistant (plus shows the main window).
+            ViewModel.StatusBarViewModel?.OpenAiChatRequested.AsObservable()
+                .Subscribe(_ => toggleAi())
+                .DisposeWith(disposables);
+
+            // AI ring progress: subscribe to AISchedulerService state changes.
+            // 每个来源用各自的标签登记/注销，互不影响（见 IsAIProcessing 说明）。
+            ServiceLib.Services.AISchedulerService.IsBusyChanged += (busy) =>
+            {
+                Dispatcher.BeginInvoke(() =>
+    {
+                if (busy)
+                    BeginAiTask("scheduler");
+                else
+                    EndAiTask("scheduler");
+            });
+            };
+            // 带来源的手动入口（设置页测试、聊天页采集）：按来源各自登记，
+            // 谁结束就注销谁，不会互相熄灭。
+            ServiceLib.Services.AISchedulerService.BusyScopeChanged += (source, busy) =>
+            {
+                Dispatcher.BeginInvoke(() =>
+    {
+                if (busy)
+                    BeginAiTask(source);
+                else
+                    EndAiTask(source);
+            });
+            };
+            // 任务完成事件同样注销一次：与上面的 false 重复也无害（移除不存在的标签直接返回），
+            // 但万一哪天 false 漏发，这里能保证光晕不会一直亮着。
+            ServiceLib.Services.AISchedulerService.RunCompleted += (msg, count) =>
+            {
+                Dispatcher.BeginInvoke(() => EndAiTask("scheduler"));
+            };
+            // 如果调度器在本订阅注册之前就已经开始执行，同步一次当前状态，
+            // 避免错过最初的 IsBusyChanged(true) 导致该亮的时候不亮。
+            if (ServiceLib.Services.AISchedulerService.IsBusy)
+            {
+                BeginAiTask("scheduler");
+            }
+            menuLeakDetection.Click += (s, e) =>
+            {
+                var vm = new ServiceLib.ViewModels.LeakDetectionViewModel();
+                var dialog = new LeakDetectionWindow { DataContext = vm };
+                dialog.ShowDialog(this);
+            };
+            menuAiProductivity.Click += (s, e) =>
+                            {
+                                try
+                                {
+                                    ProcUtils.ProcessStart(Global.DownloadUrl);
+                                }
+                                catch
+                                {
+                                }
+                            };
             this.BindCommand(ViewModel, vm => vm.FullConfigTemplateCmd, v => v.menuFullConfigTemplate).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.GlobalHotkeySettingCmd, v => v.menuGlobalHotkeySetting).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RebootAsAdminCmd, v => v.menuRebootAsAdmin).DisposeWith(disposables);
@@ -314,39 +337,153 @@ public partial class MainWindow
         await Task.CompletedTask;
     }
 
-    public bool IsAIProcessing
+    /// <summary>
+    /// AI 是否正在工作（只读）。由任务标签集合推导：只要还有一个任务没结束，
+    /// 光晕就继续闪；最后一个任务结束才熄灭。
+    ///
+    /// 原先用一个 bool 记录状态，而驱动方有四个（定时任务、设置页测试、聊天采集、
+    /// 调度器完成事件），交叉开始/结束时会互相踩：一个任务结束就把另一个正在跑的
+    /// 任务的光晕灭掉；反过来漏掉一次结束就会一直闪个不停。改成按任务标签计数后，
+    /// 这两种情况都不会再发生，且结束调用幂等（重复结束无害）。
+    /// </summary>
+    public bool IsAIProcessing => _aiBusyTags.Count > 0;
+
+    private readonly Dictionary<string, DateTime> _aiBusyTags = new();
+    private DispatcherTimer? _aiWatchdog;
+
+    /// <summary>单个任务允许点亮的最长时间，超时强制熄灭，防止异常路径漏掉结束时永远闪。</summary>
+    private static readonly TimeSpan AiTaskMaxDuration = TimeSpan.FromMinutes(20);
+
+    public void BeginAiTask(string tag)
     {
-        get => _isAIProcessing;
-        set
+        if (Dispatcher.CheckAccess())
         {
-            if (_isAIProcessing == value) return;
-            _isAIProcessing = value;
-            if (value)
-                StartAIRingAnimation();
-            else
-                StopAIRingAnimation();
+            BeginAiTaskCore(tag);
+        }
+        else
+        {
+            Dispatcher.BeginInvoke(() => BeginAiTaskCore(tag));
         }
     }
-    private bool _isAIProcessing;
+
+    public void EndAiTask(string tag)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            EndAiTaskCore(tag);
+        }
+        else
+        {
+            Dispatcher.BeginInvoke(() => EndAiTaskCore(tag));
+        }
+    }
+
+    private void BeginAiTaskCore(string tag)
+    {
+        _aiBusyTags[tag] = DateTime.Now;
+        SyncAiRing();
+    }
+
+    private void EndAiTaskCore(string tag)
+    {
+        if (!_aiBusyTags.Remove(tag))
+        {
+            return;
+        }
+
+        SyncAiRing();
+    }
+
+    private void SyncAiRing()
+    {
+        if (_aiBusyTags.Count > 0)
+        {
+            StartAIRingAnimation();
+            // 让用户能分清"AI 真的在跑"还是"光晕卡住了"
+            btnAiAssistant.ToolTip = "AI 正在工作…（点击打开对话）";
+        }
+        else
+        {
+            StopAIRingAnimation();
+            btnAiAssistant.ToolTip = "AI 智能代理助手";
+        }
+    }
 
     private void StartAIRingAnimation()
     {
-        if (_aiRingTimer != null) return;
-        _aiRingTimer = new System.Windows.Threading.DispatcherTimer
+        // Show ring + glow
+        aiProgressRing.Visibility = Visibility.Visible;
+        aiGlow.Visibility = Visibility.Visible;
+
+        // 重新计时，确保从呼吸起点开始
+        _aiAnimStart = DateTime.Now;
+
+        if (_aiRingTimer == null)
         {
-            Interval = TimeSpan.FromMilliseconds(30)
-        };
-        _aiRingTimer.Tick += (s, e) =>
-        {
-            aiProgressRotate.Angle = (aiProgressRotate.Angle + 6) % 360;
-        };
+            _aiRingTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(30)
+            };
+            _aiRingTimer.Tick += AiRingTimer_Tick;
+        }
+
         _aiRingTimer.Start();
+
+        if (_aiWatchdog == null)
+        {
+            _aiWatchdog = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(1)
+            };
+            _aiWatchdog.Tick += AiWatchdog_Tick;
+        }
+
+        _aiWatchdog.Start();
+    }
+
+    private void AiRingTimer_Tick(object? sender, EventArgs e)
+    {
+        // 旋转：每帧 +6 度
+        aiProgressRotate.Angle = (aiProgressRotate.Angle + 6) % 360;
+
+        // 光晕呼吸：0.1 <-> 0.7，800ms 一个来回。与旋转共用同一计时器，
+        // 不用独立的 DoubleAnimation，避免停止后动画残留继续闪动。
+        var t = (DateTime.Now - _aiAnimStart).TotalMilliseconds / 800.0;
+        aiGlow.Opacity = 0.4 + 0.3 * Math.Sin(2 * Math.PI * t);
+    }
+
+    private void AiWatchdog_Tick(object? sender, EventArgs e)
+    {
+        // 兜底：任务异常退出、没走到 EndAiTask 时，超过上限强制熄灭，
+        // 否则一个漏掉的结束调用会让光晕无限闪下去。
+        var expired = _aiBusyTags
+            .Where(kv => DateTime.Now - kv.Value > AiTaskMaxDuration)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        if (expired.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var tag in expired)
+        {
+            _aiBusyTags.Remove(tag);
+            Logging.SaveLog($"AI task '{tag}' exceeded {AiTaskMaxDuration.TotalMinutes} min, glow force-cleared");
+        }
+
+        SyncAiRing();
     }
 
     private void StopAIRingAnimation()
     {
+        // 停掉计时器即同时停止旋转与光晕，不会有任何动画残留
         _aiRingTimer?.Stop();
-        _aiRingTimer = null;
+        _aiWatchdog?.Stop();
+
+        aiGlow.Opacity = 0;
+        aiGlow.Visibility = Visibility.Collapsed;
+        aiProgressRing.Visibility = Visibility.Collapsed;
     }
 
     private void OnHotkeyHandler(EGlobalHotkey e)
@@ -364,56 +501,68 @@ public partial class MainWindow
                 AppEvents.SysProxyChangeRequested.Publish((ESysProxyType)((int)e - 1));
                 break;
         }
-    }        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+    }
+    private void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        // Normally, closing hides the window to the tray. If the user is doing a
+        // real exit (via ShutdownNow), let the close proceed so WPF can actually shut down.
+        if (ExitManager.ForceExit)
         {
-            // Normally, closing hides the window to the tray. If the user is doing a
-            // real exit (via ShutdownNow), let the close proceed so WPF can actually shut down.
-            if (ExitManager.ForceExit)
-            {
-                e.Cancel = false;
-                return;
-            }
-            e.Cancel = true;
-            ShowHideWindow(false);
-        }        private async void Current_SessionEnding(object sender, SessionEndingCancelEventArgs e)
-        {
-            Logging.SaveLog("Current_SessionEnding");
-            ShutdownNow();
+            e.Cancel = false;
+            return;
         }
+        e.Cancel = true;
+        ShowHideWindow(false);
+    }
+    private async void Current_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+    {
+        Logging.SaveLog("Current_SessionEnding");
+        ShutdownNow();
+    }
 
-        /// <summary>
-        /// Unified exit path with a 5s watchdog that force-kills the process if the
-        /// cleanup chain hangs for any reason.
-        /// </summary>
-        private async void ShutdownNow()
-        {
-            // Force-exit flag: without it, MainWindow_Closing would cancel the
-            // Application.Shutdown() call and the process would stay alive forever.
-            ExitManager.ForceExit = true;
+    /// <summary>
+    /// Unified exit path with a 5s watchdog that force-kills the process if the
+    /// cleanup chain hangs for any reason.
+    /// </summary>
+    private async void ShutdownNow()
+    {
+        // Force-exit flag: without it, MainWindow_Closing would cancel the
+        // Application.Shutdown() call and the process would stay alive forever.
+        ExitManager.ForceExit = true;
 
         // StorageUI saves window position/size synchronously before handing off
         // the long-running cleanup to a background task.
-        try { StorageUI(); } catch { }
+        try
+        { StorageUI(); }
+        catch { }
 
-        // 优雅退出跑在独立线程，不被 UI 线程阻塞。如果 5 秒内还没完成，
-        // 让应用继续挂着但不再杀进程；用户从任务管理器退出即可。
-        using var cts = new CancellationTokenSource();
+        // 优雅退出跑在独立线程，不被 UI 线程阻塞。CoreStop 停核心进程可能需要 ~7s，
+        // 给 15s 余量；超时后直接强杀进程，绝不让用户去任务管理器手动结束。
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var cleanup = Task.Run(async () =>
         {
-            try { await AppManager.Instance.AppExitAsync(false); } catch { }
+            try
+            { await AppManager.Instance.AppExitAsync(false); }
+            catch { }
             Application.Current.Dispatcher.Invoke(() =>
-            {
-                try { Application.Current.Shutdown(); } catch { }
-            });
+     {
+            try
+            { Application.Current.Shutdown(); }
+            catch { }
         });
-        if (await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(5), cts.Token)) != cleanup)
+        });
+        if (await Task.WhenAny(cleanup, Task.Delay(TimeSpan.FromSeconds(15), cts.Token)) != cleanup)
         {
-            Logging.SaveLog("MenuClose/SessionEnding: cleanup did not finish in 5s, leaving process alive");
+            Logging.SaveLog("MenuClose/SessionEnding: cleanup did not finish in 15s, force-killing process");
+            Environment.Exit(0);
         }
-        }
+    }
 
     private void Shutdown(bool obj)
     {
+        // Without this flag, MainWindow_Closing will cancel the shutdown and
+        // leave the process alive forever (the "app won't exit" bug).
+        ExitManager.ForceExit = true;
         Application.Current.Shutdown();
     }
 
@@ -492,33 +641,27 @@ public partial class MainWindow
     /// </summary>
     private void ToggleAiChatPanel()
     {
-        var logPath = @"D:\LUODA\LDv2rayN\ai_toggle_debug.log";
-        System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} Toggle entered, window={( _aiChatWindow == null ? "null" : (_aiChatWindow.IsVisible ? "visible" : "hidden"))}\n");
         try
         {
             if (_aiChatWindow is { IsVisible: true })
             {
-                System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} hiding\n");
                 _aiChatWindow.Hide();
                 return;
             }
 
             if (_aiChatWindow == null)
             {
-                System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} creating AIChatWindow...\n");
                 try
                 {
                     _aiChatWindow = new AIChatWindow { Owner = this };
                     _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
-                    System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} created OK\n");
                 }
                 catch (Exception ex)
                 {
-                    System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} CREATE FAILED: {ex.Message}\n");
                     Logging.SaveLog($"AIChatWindow creation failed: {ex}");
                     MessageBox.Show(
-                        $"AI 对话框创建失败：{ex.Message}",
-                        "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    $"AI 对话框创建失败：{ex.Message}",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
             }
@@ -527,15 +670,13 @@ public partial class MainWindow
             double anchorBottom = Top + Height - _aiChatWindow.Height - 16;
             _aiChatWindow.Left = Math.Max(anchorRight, 0);
             _aiChatWindow.Top = Math.Max(anchorBottom, 0);
-            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} pos=({_aiChatWindow.Left},{_aiChatWindow.Top})\n");
 
             _aiChatWindow.Show();
             _aiChatWindow.Activate();
-            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} shown ok, visible={_aiChatWindow.IsVisible}\n");
         }
         catch (Exception ex)
         {
-            System.IO.File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss.fff} EXCEPTION: {ex}\n");
+            Logging.SaveLog($"ToggleAiChatPanel failed: {ex}");
         }
     }
 
@@ -561,31 +702,33 @@ public partial class MainWindow
             this?.Hide();
         }
         AppManager.Instance.ShowInTaskbar = bl;
-    } protected override void OnLoaded(object? sender, RoutedEventArgs e)
- {
- base.OnLoaded(sender, e);
- if (_config.UiItem.AutoHideStartup)
- {
- ShowHideWindow(false);
- }
- RestoreUI();
+    }
+    protected override void OnLoaded(object? sender, RoutedEventArgs e)
+    {
+        base.OnLoaded(sender, e);
+        if (_config.UiItem.AutoHideStartup)
+        {
+            ShowHideWindow(false);
+        }
+        RestoreUI();
 
- // 预创建 AI 对话框（延迟 1.5s，等主窗口稳定），用户点击时秒开。
- // WPF 窗口首次创建要加载 XAML + MaterialDesign 样式，是最慢的一步。
- Dispatcher.BeginInvoke(new Action(() =>
- {
- if (_aiChatWindow != null) return;
- try
- {
- _aiChatWindow = new AIChatWindow { Owner = this };
- _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
- }
- catch (Exception ex)
- {
- Logging.SaveLog($"AIChatWindow prewarm failed: {ex}");
- }
- }), System.Windows.Threading.DispatcherPriority.Background);
- }
+        // 预创建 AI 对话框（延迟 1.5s，等主窗口稳定），用户点击时秒开。
+        // WPF 窗口首次创建要加载 XAML + MaterialDesign 样式，是最慢的一步。
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_aiChatWindow != null)
+                return;
+            try
+            {
+                _aiChatWindow = new AIChatWindow { Owner = this };
+                _aiChatWindow.Closed += (_, _) => _aiChatWindow = null;
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog($"AIChatWindow prewarm failed: {ex}");
+            }
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
 
     private void RestoreUI()
     {

@@ -52,22 +52,6 @@ public partial class AISettingWindow : Window
             ViewModel.MaxNodesPerSearch = maxNodes;
         }
 
-        ViewModel.AIEnabled = chkAIEnabled.IsChecked == true;
-        ViewModel.ApiUrl = txtApiUrl.Text;
-        ViewModel.ApiKey = txtApiKey.Password;
-        ViewModel.ModelId = txtModelId.Text;
-        ViewModel.AiGroupRemarks = txtAiGroupRemarks.Text;
-
-        if (int.TryParse(txtSearchInterval.Text, out var searchInterval))
-        {
-            ViewModel.SearchIntervalMinutes = searchInterval;
-        }
-
-        if (int.TryParse(txtMaxNodes.Text, out var maxNodesCount))
-        {
-            ViewModel.MaxNodesPerSearch = maxNodesCount;
-        }
-
         var config = AppManager.Instance.Config;
         config.AIConfigItem ??= new AIConfigItem();
         config.AIConfigItem.ApiUrl = txtApiUrl.Text;
@@ -101,8 +85,24 @@ public partial class AISettingWindow : Window
         btnTestFetch.IsEnabled = false;
         txtStatus.Text = "正在测试AI连接...";
 
+        // Trigger AI animation on main window
+        if (Application.Current.MainWindow is MainWindow mainWin)
+            mainWin.BeginAiTask("aisetting-test");
+
         try
         {
+            // Validate required fields before attempting fetch
+            if (string.IsNullOrWhiteSpace(txtApiUrl.Text))
+            {
+                txtStatus.Text = "[失败] 请先填写API地址";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(txtApiKey.Password))
+            {
+                txtStatus.Text = "[失败] 请先填写API密钥";
+                return;
+            }
+
             var config = AppManager.Instance.Config;
             config.AIConfigItem ??= new AIConfigItem();
             config.AIConfigItem.ApiUrl = txtApiUrl.Text;
@@ -116,18 +116,20 @@ public partial class AISettingWindow : Window
                 await Task.CompletedTask;
             });
 
-            var result = await aiService.FetchAndAddNodesAsync();
+            var (result, cleaned) = await aiService.RunFullCycleAsync();
             txtStatus.Text = result > 0
-                ? $"✅ 测试完成，成功添加 {result} 个节点"
-                : "⚠️ 测试完成，未找到有效节点";
+            ? $"[成功] 测试完成，成功添加 {result} 个节点" + (cleaned > 0 ? $"，清理失效节点 {cleaned} 个" : "")
+            : (cleaned > 0 ? $"[完成] 无新增有效节点，清理失效节点 {cleaned} 个" : "[警告] 测试完成，未找到有效节点");
         }
         catch (Exception ex)
         {
-            txtStatus.Text = $"❌ 测试失败: {ex.Message}";
+            txtStatus.Text = $"[失败] 测试失败: {ex.Message}";
         }
         finally
         {
             btnTestFetch.IsEnabled = true;
+            if (Application.Current.MainWindow is MainWindow mainWin2)
+                mainWin2.EndAiTask("aisetting-test");
         }
     }
 }

@@ -54,6 +54,29 @@ public partial class AIChatWindow : Window
         {
             Dispatcher.BeginInvoke(ScrollToEnd, System.Windows.Threading.DispatcherPriority.Background);
         };
+
+        // 把对话的忙状态接到主窗口 AI 图标的光晕上：在聊天里让 AI 采集/搜索节点时
+        // 右下角图标跟着呼吸，任务一结束立刻熄灭。窗口关闭时兜底注销，
+        // 免得异常路径下光晕一直闪。
+        _vm.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName != nameof(AIChatViewModel.IsProcessing))
+            {
+                return;
+            }
+
+            var main = Application.Current?.MainWindow as MainWindow;
+            if (_vm.IsProcessing)
+            {
+                main?.BeginAiTask("aichat");
+            }
+            else
+            {
+                main?.EndAiTask("aichat");
+            }
+        };
+
+        Closed += (s, e) => (Application.Current?.MainWindow as MainWindow)?.EndAiTask("aichat");
     }
 
     private AIChatViewModel _vm;
@@ -104,8 +127,8 @@ public partial class AIChatWindow : Window
         }
     }
 
- private void BtnMinimize_Click(object sender, RoutedEventArgs e) => Hide();
- private void BtnClose_Click(object sender, RoutedEventArgs e) => Hide();    private void BtnSettings_Click(object sender, RoutedEventArgs e)
+    private void BtnMinimize_Click(object sender, RoutedEventArgs e) => Hide();
+    private void BtnClose_Click(object sender, RoutedEventArgs e) => Hide(); private void BtnSettings_Click(object sender, RoutedEventArgs e)
     {
         // Open the same AISettingWindow the top menu uses. Bring this dialog
         // forward after the modal returns so the AI dialog stays on top.
@@ -124,7 +147,8 @@ public partial class AIChatWindow : Window
 
     private void BtnTestAll_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm.IsProcessing) return;
+        if (_vm.IsProcessing)
+            return;
         _ = _vm.TestAllNodesAsync();
         ScrollToEnd();
     }
@@ -158,20 +182,29 @@ public partial class AIChatWindow : Window
         }
     }
 
-    private void TxtInput_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && !txtInput.AcceptsReturn)
-        {
-            e.Handled = true;
-            BtnSend_Click(this, e);
-        }
-    }
+ private void TxtInput_KeyDown(object sender, KeyEventArgs e)
+ {
+ // AcceptsReturn=True 后回车默认变换行。改为：
+ // 普通 Enter = 发送消息（用户要的就是"打完字回车就发"）
+ // Shift+Enter = 换行（需要多行输入时用）
+ if (e.Key == Key.Enter && !Keyboard.IsKeyDown(Key.LeftShift) && !Keyboard.IsKeyDown(Key.RightShift))
+ {
+ e.Handled = true;
+ BtnSend_Click(this, e);
+ }
+ }
 
     private async void BtnSend_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm.IsProcessing) return;
+        if (_vm.IsProcessing)
+        {
+            // 静默 return 会让用户以为「粘贴没被识别」——其实上一批还在处理，必须给可见反馈。
+            _vm.NotifyBusySend();
+            return;
+        }
         var text = txtInput.Text;
-        if (string.IsNullOrWhiteSpace(text)) return;
+        if (string.IsNullOrWhiteSpace(text))
+            return;
         // Explicitly hand the text to the VM so the user's message is always
         // appended even if the two-way binding has not fired yet.
         _vm.ChatInput = text;
@@ -181,7 +214,8 @@ public partial class AIChatWindow : Window
 
     private async void BtnSearchRepos_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm.IsProcessing) return;
+        if (_vm.IsProcessing)
+            return;
         await _vm.SearchGitHubReposAsync();
         ScrollToEnd();
     }
@@ -204,16 +238,19 @@ public partial class AIChatWindow : Window
 
     private async void BtnImportSelected_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm.IsProcessing) return;
+        if (_vm.IsProcessing)
+            return;
         await _vm.ImportSelectedReposAsync();
         ScrollToEnd();
     }
 
     private void ScrollToEnd()
     {
-        if (chatItems?.Items is null) return;
+        if (chatItems?.Items is null)
+            return;
         var count = chatItems.Items.Count;
-        if (count == 0) return;
+        if (count == 0)
+            return;
         scrollChat.ScrollToBottom();
     }
 }

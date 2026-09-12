@@ -24,7 +24,8 @@ internal sealed class AnalyzeUrlCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
         if (!b.TryGetProperty("url", out var urlEl) || urlEl.GetString() is not { Length: > 0 } url)
             return AiResult.Error("'url' is required", 400);
 
@@ -59,7 +60,9 @@ internal sealed class AnalyzeUrlCapability : IAiCapability
             if (ok)
             {
                 var subId = await AiGroupHelper.GetOrCreateGroup(config, group);
-                nodesAdded = await ConfigHandler.AddBatchServers(config, url, subId, true);
+                // 增量：链接已在组内则跳过，不清空分组
+                var (n, _) = await AIFetchService.AddNewNodesToGroupAsync(config, subId, new List<string> { url });
+                nodesAdded = n;
             }
             added = nodesAdded;
             var verb = ok ? "added" : "rejected";
@@ -101,13 +104,15 @@ internal sealed class TestNodeCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
 
         var links = new List<string>();
         if (b.TryGetProperty("link", out var one) && one.ValueKind == JsonValueKind.String)
         {
             var s = one.GetString();
-            if (!string.IsNullOrWhiteSpace(s)) links.Add(s);
+            if (!string.IsNullOrWhiteSpace(s))
+                links.Add(s);
         }
         if (b.TryGetProperty("links", out var many) && many.ValueKind == JsonValueKind.Array)
         {
@@ -116,11 +121,13 @@ internal sealed class TestNodeCapability : IAiCapability
                 if (el.ValueKind == JsonValueKind.String)
                 {
                     var s = el.GetString();
-                    if (!string.IsNullOrWhiteSpace(s)) links.Add(s);
+                    if (!string.IsNullOrWhiteSpace(s))
+                        links.Add(s);
                 }
             }
         }
-        if (links.Count == 0) return AiResult.Error("Provide 'link' or 'links'", 400);
+        if (links.Count == 0)
+            return AiResult.Error("Provide 'link' or 'links'", 400);
 
         var results = new List<object>();
         foreach (var link in links)
@@ -150,7 +157,8 @@ internal sealed class AddNodesCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
         if (!b.TryGetProperty("links", out var arr) || arr.ValueKind != JsonValueKind.Array)
             return AiResult.Error("'links' array is required", 400);
 
@@ -160,18 +168,21 @@ internal sealed class AddNodesCapability : IAiCapability
             if (el.ValueKind == JsonValueKind.String)
             {
                 var s = el.GetString();
-                if (!string.IsNullOrWhiteSpace(s)) links.Add(s);
+                if (!string.IsNullOrWhiteSpace(s))
+                    links.Add(s);
             }
         }
-        if (links.Count == 0) return AiResult.Error("'links' must not be empty", 400);
+        if (links.Count == 0)
+            return AiResult.Error("'links' must not be empty", 400);
 
         var group = b.TryGetProperty("group", out var g) && g.ValueKind == JsonValueKind.String ? g.GetString() : "AI自动获取";
         var config = AppManager.Instance.Config;
 
         var subId = await AiGroupHelper.GetOrCreateGroup(config, group);
-        var count = await ConfigHandler.AddBatchServers(config, string.Join("\n", links), subId, true);
+        // 增量：只补组内还没有的节点，不清空分组
+        var (count, dup) = await AIFetchService.AddNewNodesToGroupAsync(config, subId, links);
 
-        var data = new { group, subId, requested = links.Count, added = count };
+        var data = new { group, subId, requested = links.Count, added = count, duplicated = dup };
         return AiResult.Success(JsonSerializer.SerializeToElement(data));
     }
 }
@@ -195,7 +206,8 @@ internal sealed class DeleteNodeCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
         var indexId = b.TryGetProperty("indexId", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() : null;
         var remarks = b.TryGetProperty("remarks", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
         var subId = b.TryGetProperty("subId", out var s) && s.ValueKind == JsonValueKind.String ? s.GetString() : null;
@@ -279,7 +291,8 @@ internal sealed class SelectGroupCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
         var subId = b.TryGetProperty("subId", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() : null;
         var remarks = b.TryGetProperty("remarks", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
 
@@ -289,7 +302,8 @@ internal sealed class SelectGroupCapability : IAiCapability
             target = subs?.FirstOrDefault(s => string.Equals(s.Id, subId, StringComparison.Ordinal));
         else if (!string.IsNullOrEmpty(remarks))
             target = subs?.FirstOrDefault(s => string.Equals(s.Remarks, remarks, StringComparison.OrdinalIgnoreCase));
-        if (target == null) return AiResult.Error("group not found", 404);
+        if (target == null)
+            return AiResult.Error("group not found", 404);
 
         var config = AppManager.Instance.Config;
         config.SubIndexId = target.Id;
@@ -315,7 +329,8 @@ internal sealed class SystemProxyCapability : IAiCapability
 
     public async Task<AiResult> InvokeAsync(JsonElement? body, CancellationToken ct)
     {
-        if (body is not { ValueKind: JsonValueKind.Object } b) return AiResult.Error("JSON body required", 400);
+        if (body is not { ValueKind: JsonValueKind.Object } b)
+            return AiResult.Error("JSON body required", 400);
         if (!b.TryGetProperty("mode", out var mode) || mode.ValueKind != JsonValueKind.String)
             return AiResult.Error("'mode' is required", 400);
 
@@ -354,16 +369,31 @@ internal sealed class AiConfigCapability : IAiCapability
 
         if (body is { ValueKind: JsonValueKind.Object } b)
         {
-            if (b.TryGetProperty("enabled", out var e) && e.ValueKind == JsonValueKind.True) ai.Enabled = true;
-            else if (b.TryGetProperty("enabled", out var e2) && e2.ValueKind == JsonValueKind.False) ai.Enabled = false;
-            if (b.TryGetProperty("autoCrawlEnabled", out var a) && a.ValueKind == JsonValueKind.True) ai.AutoCrawlEnabled = true;
-            else if (b.TryGetProperty("autoCrawlEnabled", out var a2) && a2.ValueKind == JsonValueKind.False) ai.AutoCrawlEnabled = false;
-            if (b.TryGetProperty("intervalMinutes", out var i) && i.ValueKind == JsonValueKind.Number) ai.AutoCrawlIntervalMinutes = Math.Max(5, i.GetInt32());
-            if (b.TryGetProperty("apiUrl", out var u) && u.ValueKind == JsonValueKind.String) ai.ApiUrl = u.GetString();
-            if (b.TryGetProperty("apiKey", out var k) && k.ValueKind == JsonValueKind.String) ai.ApiKey = k.GetString();
-            if (b.TryGetProperty("modelId", out var m) && m.ValueKind == JsonValueKind.String) ai.ModelId = m.GetString();
-            if (b.TryGetProperty("group", out var g) && g.ValueKind == JsonValueKind.String) ai.AiGroupRemarks = g.GetString();
-            if (b.TryGetProperty("maxNodes", out var mx) && mx.ValueKind == JsonValueKind.Number) ai.MaxNodesPerSearch = mx.GetInt32();
+            if (b.TryGetProperty("enabled", out var e) && e.ValueKind == JsonValueKind.True)
+                ai.Enabled = true;
+            else if (b.TryGetProperty("enabled", out var e2) && e2.ValueKind == JsonValueKind.False)
+                ai.Enabled = false;
+            if (b.TryGetProperty("autoCrawlEnabled", out var a) && a.ValueKind == JsonValueKind.True)
+                ai.AutoCrawlEnabled = true;
+            else if (b.TryGetProperty("autoCrawlEnabled", out var a2) && a2.ValueKind == JsonValueKind.False)
+                ai.AutoCrawlEnabled = false;
+            // 这个字段是「一天里的第几小时」（0-23），不是分钟间隔。
+            // 原来写成 Math.Max(5, ...)，外部传 120 会被记成 120，调度器再当成非法值回落到 3 点，
+            // 结果怎么设都是凌晨 3 点。这里直接按小时夹到 0-23。
+            if (b.TryGetProperty("intervalMinutes", out var i) && i.ValueKind == JsonValueKind.Number)
+            {
+                ai.AutoCrawlIntervalMinutes = Math.Clamp(i.GetInt32(), 0, 23);
+            }
+            if (b.TryGetProperty("apiUrl", out var u) && u.ValueKind == JsonValueKind.String)
+                ai.ApiUrl = u.GetString();
+            if (b.TryGetProperty("apiKey", out var k) && k.ValueKind == JsonValueKind.String)
+                ai.ApiKey = k.GetString();
+            if (b.TryGetProperty("modelId", out var m) && m.ValueKind == JsonValueKind.String)
+                ai.ModelId = m.GetString();
+            if (b.TryGetProperty("group", out var g) && g.ValueKind == JsonValueKind.String)
+                ai.AiGroupRemarks = g.GetString();
+            if (b.TryGetProperty("maxNodes", out var mx) && mx.ValueKind == JsonValueKind.Number)
+                ai.MaxNodesPerSearch = mx.GetInt32();
 
             await ConfigHandler.SaveConfig(config);
             // Restart scheduler to pick up changes
@@ -392,7 +422,8 @@ internal static class AiGroupHelper
         var subs = await AppManager.Instance.SubItems();
         var existing = subs?.FirstOrDefault(s =>
             string.Equals(s.Remarks, remarks, StringComparison.OrdinalIgnoreCase));
-        if (existing != null) return existing.Id;
+        if (existing != null)
+            return existing.Id;
 
         var newSub = new SubItem
         {

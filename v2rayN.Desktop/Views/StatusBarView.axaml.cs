@@ -28,6 +28,9 @@ public partial class StatusBarView : ReactiveUserControl<StatusBarViewModel>
             this.Bind(ViewModel, vm => vm.EnableTun, v => v.togEnableTun.IsChecked).DisposeWith(disposables);
 
             this.Bind(ViewModel, vm => vm.SystemProxySelected, v => v.cmbSystemProxy.SelectedIndex).DisposeWith(disposables);
+            // 组合框初始化会把 SelectedIndex=0（清除系统代理）推回 VM，启动时悄悄关掉系统代理。
+            // Loaded 之前 VM 忽略该值，Loaded 后以配置为准重新同步一次。
+            this.Loaded += (_, _) => ViewModel.MarkSystemProxyReady();
             this.Bind(ViewModel, vm => vm.SelectedRouting, v => v.cmbRoutings2.SelectedItem).DisposeWith(disposables);
 
             btnAIFetch.Click += async (s, e) =>
@@ -43,7 +46,7 @@ public partial class StatusBarView : ReactiveUserControl<StatusBarViewModel>
                 });
                 _ = Task.Run(async () =>
                 {
-                    await aiService.FetchAndAddNodesAsync();
+                    await aiService.RunFullCycleAsync();
                 });
             };
 
@@ -65,6 +68,32 @@ public partial class StatusBarView : ReactiveUserControl<StatusBarViewModel>
                 Dispatcher.UIThread.Post(RefreshIcon, DispatcherPriority.Default);
                 interaction.SetOutput(RxVoid.Default);
             }).DisposeWith(disposables);
+
+            // 连接状态变化 -> 托盘图标切换：
+            // 未连接 = LDv2rayN.png，连接成功 = LDv2rayN2.png（红色）。跟 WPF 版行为一致。
+            ViewModel.WhenAnyValue(vm => vm.IsCoreConnected)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Subscribe(connected =>
+                {
+                    try
+                    {
+                        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                        {
+                            desktop.MainWindow.Icon = AvaUtils.GetAppIcon(connected);
+                            var iconslist = TrayIcon.GetIcons(Application.Current);
+                            if (iconslist is { Count: > 0 })
+                            {
+                                iconslist[0].Icon = desktop.MainWindow.Icon;
+                                TrayIcon.SetIcons(Application.Current, iconslist);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ServiceLib.Common.Logging.SaveLog("tray icon switch failed", ex);
+                    }
+                })
+                .DisposeWith(disposables);
         });
 
         //spEnableTun.IsVisible = (Utils.IsWindows() || AppHandler.Instance.IsAdministrator);
@@ -82,10 +111,13 @@ public partial class StatusBarView : ReactiveUserControl<StatusBarViewModel>
     {
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow.Icon = AvaUtils.GetAppIcon(_config.SystemProxyItem.SysProxyType);
+            desktop.MainWindow.Icon = AvaUtils.GetAppIcon(ViewModel?.IsCoreConnected == true);
             var iconslist = TrayIcon.GetIcons(Application.Current);
-            iconslist[0].Icon = desktop.MainWindow.Icon;
-            TrayIcon.SetIcons(Application.Current, iconslist);
+            if (iconslist is { Count: > 0 })
+            {
+                iconslist[0].Icon = desktop.MainWindow.Icon;
+                TrayIcon.SetIcons(Application.Current, iconslist);
+            }
         }
     }
 

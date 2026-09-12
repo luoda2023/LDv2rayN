@@ -84,6 +84,9 @@ public partial class AISettingViewModel : MyReactiveObject, ICloseable
         IsSearching = true;
         StatusMessage = "正在测试AI连接...";
 
+        // 手动测试入口绕过调度器，需要主动通知主窗口的 AI 图标动画
+        AISchedulerService.NotifyBusy(true, "aisetting-fetch");
+
         try
         {
             var aiService = new AIFetchService(_config, async (success, msg) =>
@@ -92,18 +95,20 @@ public partial class AISettingViewModel : MyReactiveObject, ICloseable
                 await Task.CompletedTask;
             });
 
-            var result = await aiService.FetchAndAddNodesAsync();
+            // 手动入口同样先清失效再补新的，行为和每天自动采集一致
+            var (result, cleaned) = await aiService.RunFullCycleAsync();
             StatusMessage = result > 0
-                ? $"✅ 测试完成，成功添加 {result} 个节点"
-                : "⚠️ 测试完成，未找到有效节点";
+            ? $"[成功] 测试完成，成功添加 {result} 个节点" + (cleaned > 0 ? $"，清理失效节点 {cleaned} 个" : "")
+            : (cleaned > 0 ? $"[完成] 无新增有效节点，清理失效节点 {cleaned} 个" : "[警告] 测试完成，未找到有效节点");
         }
         catch (Exception ex)
         {
-            StatusMessage = $"❌ 测试失败: {ex.Message}";
+            StatusMessage = $"[失败] 测试失败: {ex.Message}";
         }
         finally
         {
             IsSearching = false;
+            AISchedulerService.NotifyBusy(false, "aisetting-fetch");
         }
     }
 }

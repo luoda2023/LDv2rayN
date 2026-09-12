@@ -30,7 +30,7 @@
                 VerticalAlignment="Center"
                 ClipToBounds="True"
                 Style="{StaticResource MaterialDesignToolBar}">
-                <Button x:Name="menuRoutingAdvancedAdd2">
+                <Button x:Name="menuRoutingAdvancedAdd2" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
@@ -40,12 +40,12 @@
                     </StackPanel>
                 </Button>
                 <Separator />
-                <Button x:Name="menuRoutingAdvancedImportRules2">
+                <Button x:Name="menuRoutingAdvancedImportRules2" Style="{StaticResource ToolbarButton}">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon
                             Margin="{StaticResource MarginRight8}"
                             VerticalAlignment="Center"
-                            Kind="Import" />
+                            Kind="FileImport" />
                         <TextBlock Style="{StaticResource ToolbarTextBlock}" Text="{x:Static resx:ResUI.menuRoutingAdvancedImportRules}" />
                     </StackPanel>
                 </Button>
@@ -70,7 +70,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkdomainStrategy_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbdomainStrategy}" />
-                    <materialDesign:PackIcon Kind="Link" />
+                    <materialDesign:PackIcon Kind="OpenInNew" />
                 </Hyperlink>
             </TextBlock>
             <ComboBox
@@ -89,7 +89,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkdomainStrategy4Singbox_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbdomainStrategy4Singbox}" />
-                    <materialDesign:PackIcon Kind="Link" />
+                    <materialDesign:PackIcon Kind="OpenInNew" />
                 </Hyperlink>
             </TextBlock>
             <ComboBox

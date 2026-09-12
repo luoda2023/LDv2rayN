@@ -126,9 +126,13 @@ public class Utils
             var data = Convert.FromBase64String(plainText);
             return Encoding.UTF8.GetString(data);
         }
-        catch (Exception ex)
+        catch
         {
-            Logging.SaveLog(_tag, ex);
+            // 这里是有意为之的「探测式」调用：调用方本来就不确定内容是不是 Base64，
+            // 解不出来是正常结果（返回空串即表示「不是 Base64」），不是错误。
+            // 以前把异常栈写进日志，解析几千个节点链接时会刷出几千条堆栈——
+            // 实测某天日志 6534 行里有 2002 行是这个，把真正的错误（比如内核连不上节点）
+            // 全淹掉了，反而让人查不出问题。
         }
 
         return string.Empty;
@@ -1244,6 +1248,54 @@ public class Utils
         else
         {
             return Path.Combine(tempPath, filename);
+        }
+    }
+
+    /// <summary>
+    /// 清理残留的临时测速配置（binConfigs/configTest&lt;guid&gt;.json）。
+    ///
+    /// 每次测速 / 采集验证都会生成一份临时配置，里面有「每个节点一个入站」的结构，
+    /// 节点多的时候单文件能到 7 MB 以上，而它们跑完从不删除。
+    /// 实测一个用了一阵子的安装目录里堆了 62 个文件、共 71 MB。
+    ///
+    /// 在启动时调用是安全的：此刻没有测速在跑，所有 configTest*.json 都是历史残留。
+    /// 真正的运行配置 config.json 不匹配该模式，不会被误删。
+    /// </summary>
+    public static void ClearStaleSpeedtestConfigs()
+    {
+        try
+        {
+            var dir = GetBinConfigPath();
+            if (!Directory.Exists(dir))
+            {
+                return;
+            }
+
+            long freed = 0;
+            var count = 0;
+            foreach (var file in Directory.EnumerateFiles(dir, "configTest*.json"))
+            {
+                try
+                {
+                    var size = new FileInfo(file).Length;
+                    File.Delete(file);
+                    freed += size;
+                    count++;
+                }
+                catch
+                {
+                    // 单个文件删不掉（被占用等）不该影响启动
+                }
+            }
+
+            if (count > 0)
+            {
+                Logging.SaveLog($"ClearStaleSpeedtestConfigs: 清理 {count} 个临时测速配置，释放 {freed / 1024 / 1024} MB");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog("ClearStaleSpeedtestConfigs failed", ex);
         }
     }
 

@@ -6,7 +6,7 @@
 		<GenerateSatelliteAssembliesForCore>true</GenerateSatelliteAssembliesForCore>
 		<UseWPF>true</UseWPF>
 		<AssemblyName>LDv2rayN</AssemblyName>
-		<ApplicationIcon>Resources\v2rayN.ico</ApplicationIcon>
+		<ApplicationIcon>Resources\LDv2rayN.ico</ApplicationIcon>
 		<ApplicationTitle>LDv2rayN</ApplicationTitle>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
 		<ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -25,20 +25,20 @@
 		<PackageReference Include="ReactiveUI.WPF" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<AdditionalFiles Include="app.manifest" />
-		<EmbeddedResource Include="Resources\v2rayN.ico">
-			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
-		</EmbeddedResource>
-		<Resource Include="Resources\NotifyIcon1.ico" />
-		<Resource Include="Resources\NotifyIcon2.ico" />
-		<Resource Include="Resources\NotifyIcon3.ico" />
-		<Resource Include="Resources\NotifyIcon4.ico" />
-		<Resource Include="Resources\v2rayN.ico" />
-		<Resource Include="..\LDv2rayN.png">
-			<Link>Resources\LDv2rayN.png</Link>
-		</Resource>
-	</ItemGroup>
+		<ItemGroup>
+<AdditionalFiles Include="app.manifest" />
+<EmbeddedResource Include="Resources\LDv2rayN.ico">
+<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+</EmbeddedResource>
+<Resource Include="Resources\NotifyIcon1.ico" />
+<Resource Include="Resources\NotifyIcon2.ico" />
+<Resource Include="Resources\NotifyIcon3.ico" />
+<Resource Include="Resources\NotifyIcon4.ico" />
+<Resource Include="Resources\LDv2rayN.ico" />
+<Resource Include="Resources\LDv2rayN.png" />
+<!-- 已连接状态的托盘图标（源：仓库根 LDv2rayN2.png，红色）。没登记就加载不到，托盘不会变红。 -->
+<Resource Include="Resources\LDv2rayN2.ico" />
+		</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\ServiceLib\ServiceLib.csproj" />

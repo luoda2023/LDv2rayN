@@ -114,11 +114,147 @@
                 TargetType="{x:Type CheckBox}">
                 <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
             </Style>
+            <!-- ==========================================================
+                 Material 3 按钮体系
+                 统一几何：8px 圆角 / 高 34 / 内边距 16,0 / 字号 12 / 中等字重
+                 DefButton        主操作   实心填充
+                 SecondaryButton  次操作   填充色调底
+                 DangerButton     危险操作 实心红（整窗级，如「重置」）
+                 IconButton       纯图标   32×32 填充圆角，用于工具条
+                 ToolbarButton    图标+文字 填充圆角，宽度自适应
+                 危险操作的三个尺寸变体（几何各自对齐中性版，换色不改布局）：
+                 DangerButton / ToolbarDangerButton / DangerIconButton
+                 注意：图标按钮一律带可见底色（Primary.Light 填充 + 对应前景色），
+                 不做透明底。透明底会让图标看起来像散落的灰符号，不成按钮。
+                 ========================================================== -->
+            <!-- 危险色集中一处定义：三个尺寸变体共用，改这里即可全局换色 -->
+            <SolidColorBrush x:Key="DangerBrush" Color="#D9483F" />
+            <!-- 主操作：填充主色。
+                 基底刻意选 MaterialDesignFlatButton（而非 Raised）：
+                 Material 3 的 Filled Button 本身没有投影，扁平填充才是正确形态；
+                 同时这样所有按钮样式只依赖 FlatButton 与 FloatingActionMiniButton
+                 两个已在真机渲染验证过的资源键，不再引入未验证的依赖。 -->
             <Style
                 x:Key="DefButton"
-                BasedOn="{StaticResource MaterialDesignRaisedButton}"
+                BasedOn="{StaticResource MaterialDesignFlatButton}"
                 TargetType="{x:Type ButtonBase}">
                 <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="MinWidth" Value="88" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Foreground}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+            </Style>
+            <!-- 次操作：填充色调底（不是透明底 + 描边）。
+                 用户明确要求按钮不能是透明化的，所以统一给可见底色。 -->
+            <Style
+                x:Key="SecondaryButton"
+                BasedOn="{StaticResource MaterialDesignFlatButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="MinWidth" Value="88" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light.Foreground}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+            </Style>
+            <Style
+                x:Key="DangerButton"
+                BasedOn="{StaticResource MaterialDesignFlatButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="MinWidth" Value="88" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+            </Style>
+            <!-- 纯图标按钮：32×32，填充底色，工具条用 -->
+            <Style
+                x:Key="IconButton"
+                BasedOn="{StaticResource MaterialDesignFlatButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light.Foreground}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+                <Setter Property="materialDesign:RippleAssist.IsCentered" Value="True" />
+            </Style>
+            <Style
+                x:Key="IconButtonTiny"
+                BasedOn="{StaticResource IconButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="Width" Value="28" />
+                <Setter Property="Height" Value="28" />
+            </Style>
+            <!-- 内联迷你图标按钮：24×24，用于正文气泡内的复制等操作 -->
+            <Style
+                x:Key="IconButtonMini"
+                BasedOn="{StaticResource IconButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="Width" Value="24" />
+                <Setter Property="Height" Value="24" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="6" />
+            </Style>
+            <!-- 工具条按钮：图标+文字，填充底色，宽度自适应 -->
+            <Style
+                x:Key="ToolbarButton"
+                BasedOn="{StaticResource MaterialDesignFlatButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Padding" Value="12,0" />
+                <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary.Light.Foreground}" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="8" />
+            </Style>
+            <!-- 危险操作的工具条尺寸版：几何与 ToolbarButton 完全一致，
+                 只换颜色，这样插在工具条里不会因为宽高不同而错位 -->
+            <Style
+                x:Key="ToolbarDangerButton"
+                BasedOn="{StaticResource ToolbarButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Style>
+            <!-- 危险操作的图标尺寸版：几何与 IconButton 完全一致 -->
+            <Style
+                x:Key="DangerIconButton"
+                BasedOn="{StaticResource IconButton}"
+                TargetType="{x:Type Button}">
+                <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+                <Setter Property="Foreground" Value="White" />
+            </Style>
+            <!-- 悬浮操作按钮：44×44 圆形卡片底，用于主窗口右下角 AI 助手入口 -->
+            <Style
+                x:Key="FabButton"
+                BasedOn="{StaticResource MaterialDesignFloatingActionMiniButton}"
+                TargetType="{x:Type ButtonBase}">
+                <Setter Property="Width" Value="44" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Background" Value="{DynamicResource MaterialDesignCardBackground}" />
+                <Setter Property="Foreground" Value="{DynamicResource MaterialDesignBody}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesignDivider}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="materialDesign:ButtonAssist.CornerRadius" Value="22" />
             </Style>
             <Style
                 x:Key="DefContextMenu"
@@ -149,12 +285,20 @@
                 TargetType="{x:Type DataGrid}">
                 <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
             </Style>
-            <Style
-                x:Key="DefTextBox"
-                BasedOn="{StaticResource MaterialDesignTextBox}"
-                TargetType="{x:Type TextBox}">
-                <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
-            </Style>
+ <Style
+ x:Key="DefTextBox"
+ BasedOn="{StaticResource MaterialDesignTextBox}"
+ TargetType="{x:Type TextBox}">
+ <Setter Property="FontSize" Value="{DynamicResource StdFontSize}" />
+ </Style>
+ <!-- Global toggle switch style: replaces the tiny, hard-to-see default
+ WPF ToggleButton with MaterialDesign's iOS-style sliding switch. -->
+ <Style
+ BasedOn="{StaticResource MaterialDesignSwitchToggleButton}"
+ TargetType="{x:Type ToggleButton}">
+ <Setter Property="HorizontalAlignment" Value="Left" />
+ <Setter Property="VerticalAlignment" Value="Center" />
+ </Style>
             <Style
                 x:Key="MyOutlinedTextBox"
                 BasedOn="{StaticResource MaterialDesignOutlinedTextBox}"

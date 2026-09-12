@@ -20,6 +20,12 @@ public class CoreBasicItem
     public bool EnableFinalFragment { get; set; }
 
     public bool EnableCacheFile4Sbox { get; set; } = true;
+
+    /// <summary>
+    /// 自动故障转移：当前节点连续连通性探测失败时，自动切换到已知延迟最低的
+    /// 可用节点并重连。默认开启——用户要的是「能连上」，不是「忠实守着一个死节点」。
+    /// </summary>
+    public bool AutoFailoverEnabled { get; set; } = true;
 }
 
 [Serializable]
@@ -226,7 +232,17 @@ public class ClashUIItem
 [Serializable]
 public class SystemProxyItem
 {
-    public ESysProxyType SysProxyType { get; set; }
+    // 默认必须是「自动配置」。枚举零值是 ForcedClear（清除系统代理），
+    // 不显式赋默认值的话，新装/重置配置后软件每次启动都会把系统代理清空——
+    // 浏览器流量根本不经过本程序，而软件内测速走的本地端口照常出数字，
+    // 表现为「测延迟测速度都正常，就是连不上」。
+    public ESysProxyType SysProxyType { get; set; } = ESysProxyType.ForcedChange;
+
+    /// <summary>
+    /// 一次性迁移标记：老配置里零值 ForcedClear 是枚举默认值泄漏而非用户选择，
+    /// 升级到显式默认值时只翻这一次，之后的用户选择不再干预。
+    /// </summary>
+    public bool SysProxyDefaultMigrated { get; set; }
     public string SystemProxyExceptions { get; set; }
     public bool NotProxyLocalAddress { get; set; } = true;
     public string SystemProxyAdvancedProtocol { get; set; }
@@ -286,32 +302,40 @@ public class SimpleDNSItem
     public bool? ParallelQuery { get; set; }
     public string? Hosts { get; set; }
     public string? DirectExpectedIPs { get; set; }
-    public bool? EnableHappyEyeballs { get; set; }        public bool? ForceDnsThroughProxy { get; set; }
-    }
+    public bool? EnableHappyEyeballs { get; set; }
+    public bool? ForceDnsThroughProxy { get; set; }
+}
 
-    [Serializable]
-    public class AIConfigItem
+[Serializable]
+public class AIConfigItem
 {
- public string? ApiUrl { get; set; } = "http://47.114.75.115:40000/v1";
- public string? ApiKey { get; set; } = "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794";
- public string? ModelId { get; set; } = "hermesAPI";
- public bool Enabled { get; set; } = true;
- public int SearchIntervalMinutes { get; set; } = 60;
- public string? AiGroupRemarks { get; set; } = "AI自动获取";
- public int MaxNodesPerSearch { get; set; } = 50;    public bool AutoCrawlEnabled { get; set; } = true;
- public int AutoCrawlIntervalMinutes { get; set; } = 120;
+    public string? ApiUrl { get; set; } = string.Empty;
+    public string? ApiKey { get; set; } = string.Empty;
+    public string? ModelId { get; set; } = "hermesAPI";
+    public bool Enabled { get; set; } = true;
+    public int SearchIntervalMinutes { get; set; } = 60;
+    public string? AiGroupRemarks { get; set; } = "AI自动获取";
+        public int MaxNodesPerSearch { get; set; } = 100;
+        public bool AutoCrawlEnabled { get; set; } = true;
+    public int AutoCrawlIntervalMinutes { get; set; } = 3;
 
- /// 
- public AIExternalApiConfigItem ExternalApi { get; set; } = new();
+    /// <summary>
+    /// 上次自动采集的日期（本地 yyyy-MM-dd）。
+    /// 用于保证「每天只采集一遍」：软件一天内反复启动时不会每次都重新抓一轮。
+    /// </summary>
+    public string? LastAutoCrawlDate { get; set; }
+
+    /// 
+    public AIExternalApiConfigItem ExternalApi { get; set; } = new();
 }
 
 [Serializable]
 public class AIExternalApiConfigItem
 {
- public bool Enabled { get; set; } = false;
- public string Host { get; set; } = Global.Loopback;
- public int Port { get; set; } = 26066;
- public string? Token { get; set; }
+    public bool Enabled { get; set; } = false;
+    public string Host { get; set; } = Global.Loopback;
+    public int Port { get; set; } = 26066;
+    public string? Token { get; set; }
 }
 
 [Serializable]

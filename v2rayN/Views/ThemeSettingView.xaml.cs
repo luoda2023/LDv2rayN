@@ -1,10 +1,9 @@
+using System.Collections.ObjectModel;
 using v2rayN.ViewModels;
 
 namespace v2rayN.Views;
 
-/// <summary>
-/// ThemeSettingView.xaml
-/// </summary>
+/// 
 public partial class ThemeSettingView
 {
     public ThemeSettingView()
@@ -12,7 +11,14 @@ public partial class ThemeSettingView
         InitializeComponent();
         ViewModel = new ThemeSettingViewModel();
 
-        cmbCurrentTheme.ItemsSource = Utils.GetEnumNames<ETheme>().Take(3).ToList();
+        cmbCurrentTheme.ItemsSource = new ObservableCollection<KeyValuePair<string, string>>
+ {
+ new("跟随系统", nameof(ETheme.FollowSystem)),
+ new("深色", nameof(ETheme.Dark)),
+ new("浅色", nameof(ETheme.Light)),
+ };
+        cmbCurrentTheme.DisplayMemberPath = "Key";
+        cmbCurrentTheme.SelectedValuePath = "Value";
         cmbCurrentFontSize.ItemsSource = Enumerable.Range(Global.MinFontSize, Global.MinFontSizeCount).ToList();
         cmbCurrentLanguage.ItemsSource = Global.Languages;
 

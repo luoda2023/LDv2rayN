@@ -402,3 +402,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# AI agent temp files
+.zcode/
+.workbuddy/
+.workbuddy-ai/
+*.zip
+

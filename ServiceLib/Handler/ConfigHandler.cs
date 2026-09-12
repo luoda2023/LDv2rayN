@@ -121,9 +121,18 @@ public static class ConfigHandler
         config.ConstItem ??= new ConstItem();
 
         config.AIConfigItem ??= new AIConfigItem();
-        config.AIConfigItem.ApiUrl ??= "http://47.114.75.115:40000/v1";
-        config.AIConfigItem.ApiKey ??= "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794";
-        config.AIConfigItem.ModelId ??= "hermesAPI";
+
+        // 只在「还没配过」时填默认值。
+        // 之前这里是无条件赋值，等于每次启动都把用户改过的 API 地址/密钥/开关强行改回去——
+        // 用户在设置里关掉 AI、或换成自己的 API，一重启就全被覆盖。
+        if (config.AIConfigItem.ApiUrl.IsNullOrEmpty())
+        {
+            config.AIConfigItem.ApiUrl = "https://api.dicad.cn/v1";
+            config.AIConfigItem.ApiKey = "sk-proxy-local-51f5bd4b9797f2620bc55460946802711cf7312b38c24794";
+            config.AIConfigItem.ModelId = "hermesAPI";
+            config.AIConfigItem.Enabled = true;
+        }
+
         config.AIConfigItem.AiGroupRemarks ??= "AI自动获取";
 
         config.SimpleDNSItem ??= InitBuiltinSimpleDNS();
@@ -148,6 +157,14 @@ public static class ConfigHandler
             config.SpeedTestItem.SpeedTestUrl = Global.SpeedTestUrls.First();
         }
         if (config.SpeedTestItem.SpeedPingTestUrl.IsNullOrEmpty())
+        {
+            config.SpeedTestItem.SpeedPingTestUrl = Global.SpeedPingTestUrls.First();
+        }
+        // 迁移：老版本把百度/腾讯这类国内站点当延迟探测地址。但主配置的白名单路由
+        // 会把 geosite:cn / geoip:cn 直连，导致「可用性检查」实际测的是本地直连——
+        // 节点全挂也会显示「连接成功 + 低延迟」。这里把已知的旧默认值换成必然走代理的探测点；
+        // 只替换历史默认值，用户自己填的其它地址保持不动。
+        else if (Global.LegacyDirectProbeUrls.Contains(config.SpeedTestItem.SpeedPingTestUrl))
         {
             config.SpeedTestItem.SpeedPingTestUrl = Global.SpeedPingTestUrls.First();
         }
@@ -181,6 +198,20 @@ public static class ConfigHandler
         config.ClashUIItem ??= new();
         config.ClashUIItem.ConnectionsColumnItem ??= [];
         config.SystemProxyItem ??= new();
+        // 一次性迁移：老版本里 SysProxyType 没有显式默认值，枚举零值
+        // ForcedClear（清除系统代理）被原样写进了配置文件——软件每次启动
+        // 都主动清空系统代理，浏览器流量根本不走本程序，而软件内测速
+        // 走本地端口照常出数字，用户看到的就是「测速正常但连不上」。
+        // 首次升级时翻成自动配置并落标记；之后用户手动改成什么就保持什么。
+        if (!config.SystemProxyItem.SysProxyDefaultMigrated)
+        {
+            config.SystemProxyItem.SysProxyDefaultMigrated = true;
+            if (config.SystemProxyItem.SysProxyType == ESysProxyType.ForcedClear)
+            {
+                config.SystemProxyItem.SysProxyType = ESysProxyType.ForcedChange;
+                Logging.SaveLog("ConfigHandler: migrated SysProxyType ForcedClear -> ForcedChange (one-time default fix)");
+            }
+        }
         config.WebDavItem ??= new();
         config.Fragment4RayItem ??= new()
         {
@@ -1609,7 +1640,7 @@ public static class ConfigHandler
     /// <param name="config">Current configuration</param>
     /// <param name="subid">Subscription ID to filter servers</param>
     /// <returns>Number of removed servers or -1 if failed</returns>
-    public static async Task<int> RemoveInvalidServerResult(Config config, string subid)
+    public static async Task<int> RemoveInvalidServerResult(Config config, string subid, string? protectIndexId = null)
     {
         var lstModel = await AppManager.Instance.ProfileModels(subid, "");
         lstModel.RemoveAll(t => t.ConfigType.IsComplexType());
@@ -1622,6 +1653,14 @@ public static class ConfigHandler
                           join t2 in lstProfileExs on t.IndexId equals t2.IndexId
                           where t2.Delay == -1
                           select t).ToList();
+
+        // 保护当前激活节点：正在使用的节点隧道可用是最强的「活着」证据，
+        // 一次 ping 超时（网络抖动）不足以判死——实测清理曾把隧道完好的
+        // 激活节点误删。这里无论 ping 结果如何都保留，等下一次清理再判。
+        if (protectIndexId.IsNotEmpty())
+        {
+            lstProfile.RemoveAll(t => t.IndexId == protectIndexId);
+        }
 
         await RemoveServers(config, JsonUtils.Deserialize<List<ProfileItem>>(JsonUtils.Serialize(lstProfile)));
 
@@ -2040,6 +2079,35 @@ public static class ConfigHandler
         }
 
         return -1;
+    }
+
+    /// <summary>
+    /// 把节点链接「追加」到指定分组，不清空组内原有节点。
+    /// 与 AddBatchServers 的区别：后者会先 RemoveServersViaSubid 清空整组，
+    /// 只适合整份订阅替换；AI 采集每天补充新节点时必须用这个，否则每次都把
+    /// 昨天采到的节点全删一遍，清理失效节点的步骤也就白做了。
+    /// 调用方负责去重（本方法只做链接级 Distinct）。
+    /// </summary>
+    public static async Task<int> AddServersToGroup(Config config, string strData, string subid)
+    {
+        if (strData.IsNullOrEmpty() || subid.IsNullOrEmpty())
+        {
+            return 0;
+        }
+
+        var lines = strData
+            .Split('\n', '\r')
+            .Select(t => t.Trim())
+            .Where(t => !t.IsNullOrEmpty())
+            .Distinct()
+            .ToList();
+
+        if (lines.Count == 0)
+        {
+            return 0;
+        }
+
+        return await AddBatchServersCommon(config, string.Join(Environment.NewLine, lines), subid, true);
     }
 
     /// <summary>

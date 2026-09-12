@@ -97,28 +97,33 @@
                     Style="{StaticResource MaterialDesignFloatingHintComboBox}" />
             </StackPanel>
 
-            <!-- Connection status (right of the routing combo): 已连接 + 延迟 + 速度 -->
-            <StackPanel
-                Margin="{StaticResource MarginLeftRight8}"
-                VerticalAlignment="Center"
-                DockPanel.Dock="Left"
-                Orientation="Horizontal">
-                <TextBlock x:Name="txtConnectionDisplay" Style="{StaticResource StatusbarItem}" />
-                <TextBlock x:Name="txtLatencyDisplay" Style="{StaticResource StatusbarItem}" />
-                <TextBlock x:Name="txtStatusSpeedDisplay" Style="{StaticResource StatusbarItem}" />
-            </StackPanel>
+<!-- Connection status (right of the routing combo): green=connected, red=not connected.
+     Background is driven from code-behind (see StatusBarView.xaml.cs) because this
+     view never sets DataContext, so a XAML DataTrigger on the ViewModel would never fire.
+     The value below is only the initial red state. -->
+<StackPanel
+Margin="12,0,0,0"
+VerticalAlignment="Center"
+DockPanel.Dock="Left"
+Orientation="Horizontal">
+<Border x:Name="bdConnectionStatus" CornerRadius="8" Padding="10,3" Margin="0,0,4,0" Background="#F44336">
+<TextBlock x:Name="txtConnectionDisplay" Style="{StaticResource StatusbarItem}"
+ Foreground="White" FontWeight="SemiBold"/>
+</Border>
+<TextBlock x:Name="txtStatusSpeedDisplay" Style="{StaticResource StatusbarItem}" Margin="8,0,0,0" />
+</StackPanel>
 
-                <StackPanel Margin="{StaticResource MarginLeftRight8}" VerticalAlignment="Center" Visibility="Collapsed">
-                    <TextBlock x:Name="txtRunningServerDisplay" Style="{StaticResource StatusbarItem}" />
-                    <Border Margin="1" />
-                    <TextBlock x:Name="txtRunningInfoDisplay" Style="{StaticResource StatusbarItem}" />
-                </StackPanel>
+<StackPanel Margin="{StaticResource MarginLeftRight8}" VerticalAlignment="Center" DockPanel.Dock="Left" Visibility="Collapsed">
+<TextBlock x:Name="txtRunningServerDisplay" Style="{StaticResource StatusbarItem}" />
+<Border Margin="1" />
+<TextBlock x:Name="txtRunningInfoDisplay" Style="{StaticResource StatusbarItem}" />
+</StackPanel>
             </DockPanel>
         </materialDesign:ColorZone>
 
         <tb:TaskbarIcon
             x:Name="tbNotify"
-            IconSource="/Resources/NotifyIcon1.ico"
+            IconSource="/Resources/LDv2rayN.ico"
             NoLeftClickDelay="True"
             ToolTipText="LDv2rayN">
             <tb:TaskbarIcon.ContextMenu>
@@ -133,7 +138,7 @@
                                     x:Name="menuSystemProxyClear2"
                                     Margin="{StaticResource MarginRight8}"
                                     VerticalAlignment="Center"
-                                    Kind="Check" />
+                                    Kind="CloseCircle" />
                                 <TextBlock Text="{x:Static resx:ResUI.menuSystemProxyClear}" />
                             </StackPanel>
                         </MenuItem.Header>
@@ -148,7 +153,7 @@
                                     x:Name="menuSystemProxySet2"
                                     Margin="{StaticResource MarginRight8}"
                                     VerticalAlignment="Center"
-                                    Kind="Check" />
+                                    Kind="CheckCircle" />
                                 <TextBlock Text="{x:Static resx:ResUI.menuSystemProxySet}" />
                             </StackPanel>
                         </MenuItem.Header>
@@ -163,7 +168,7 @@
                                     x:Name="menuSystemProxyNothing2"
                                     Margin="{StaticResource MarginRight8}"
                                     VerticalAlignment="Center"
-                                    Kind="Check" />
+                                    Kind="MinusCircle" />
                                 <TextBlock Text="{x:Static resx:ResUI.menuSystemProxyNothing}" />
                             </StackPanel>
                         </MenuItem.Header>
@@ -178,7 +183,7 @@
                                     x:Name="menuSystemProxyPac2"
                                     Margin="{StaticResource MarginRight8}"
                                     VerticalAlignment="Center"
-                                    Kind="Check" />
+                                    Kind="ScriptText" />
                                 <TextBlock Text="{x:Static resx:ResUI.menuSystemProxyPac}" />
                             </StackPanel>
                         </MenuItem.Header>

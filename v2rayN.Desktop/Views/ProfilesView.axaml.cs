@@ -69,7 +69,6 @@ public partial class ProfilesView : ReactiveUserControl<ProfilesViewModel>
 
             //servers ping
             this.BindCommand(ViewModel, vm => vm.MixedTestServerCmd, v => v.menuMixedTestServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.TcpingServerCmd, v => v.menuTcpingServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RealPingServerCmd, v => v.menuRealPingServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.UdpTestServerCmd, v => v.menuUdpTestServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.SpeedServerCmd, v => v.menuSpeedServer).DisposeWith(disposables);
@@ -261,7 +260,9 @@ public partial class ProfilesView : ReactiveUserControl<ProfilesViewModel>
                     break;
 
                 case Key.O:
-                    ViewModel?.ServerSpeedtest(ESpeedActionType.Tcping);
+                    // 原 Tcping 快捷键改为真连接延迟：TCP 端口通≠节点可用，
+                    // 假延迟会让「检测正常却连不上」。快捷键保留，语义改诚实。
+                    ViewModel?.ServerSpeedtest(ESpeedActionType.Realping);
                     break;
 
                 case Key.R:

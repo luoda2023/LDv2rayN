@@ -65,7 +65,7 @@
     "remarks": "代理Wikipedia",
     "outboundTag": "proxy",
     "domain": [
-      "geosite:wikipedia"
+      "geosite:wikimedia"
     ]
   },
   {
@@ -105,7 +105,7 @@
     "remarks": "代理Stack Overflow",
     "outboundTag": "proxy",
     "domain": [
-      "geosite:stackoverflow"
+      "geosite:stackexchange"
     ]
   },
   {

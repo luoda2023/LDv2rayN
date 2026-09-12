@@ -35,7 +35,7 @@
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
         <Grid>
             <DockPanel>
@@ -56,13 +56,11 @@
 
                     <Button
                         x:Name="btnAutofitColumnWidth"
-                        Width="30"
-                        Height="30"
                         Margin="{StaticResource MarginLeftRight8}"
                         AutomationProperties.Name="{x:Static resx:ResUI.menuProfileAutofitColumnWidth}"
-                        Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                        Style="{StaticResource IconButton}"
                         ToolTip="{x:Static resx:ResUI.menuProfileAutofitColumnWidth}">
-                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="ArrowSplitVertical" />
+                        <materialDesign:PackIcon VerticalAlignment="Center" Kind="TableColumnWidth" />
                     </Button>
                     <TextBox
                         x:Name="txtServerFilter"

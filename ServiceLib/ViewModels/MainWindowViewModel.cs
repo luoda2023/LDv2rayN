@@ -303,11 +303,11 @@ public partial class MainWindowViewModel : MyReactiveObject
             .AsObservable()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeAsync(async blProxy => await UpdateSubscriptionProcess("", blProxy));
- 
+
         _ = Init();
- 
+
     }
- 
+
     private async Task Init()
     {
         AppManager.Instance.ShowInTaskbar = true;
@@ -320,6 +320,19 @@ public partial class MainWindowViewModel : MyReactiveObject
         //await ConfigHandler.InitBuiltinRouting(_config);
         await ConfigHandler.InitBuiltinDNS(_config);
         await ConfigHandler.InitBuiltinFullConfigTemplate(_config);
+        // 全新发布包不含 geosite.dat/geoip.dat（publish 不带，平时靠运行时按需下载）。
+        // 缺失时内核启动会直接报 `failed to open file: geosite.dat` 并退出。
+        // 这里在起内核之前先补齐：文件都在时只是两次 File.Exists，零开销。
+        try
+        {
+            await new UpdateService(_config, UpdateHandler).EnsureGeoFilesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog("EnsureGeoFilesAsync failed", ex);
+        }
+        // 测速/采集验证生成的临时配置从不自删，长期会堆到几十 MB，启动时清一次。
+        Utils.ClearStaleSpeedtestConfigs();
         await ProfileExManager.Instance.Init();
         await CoreManager.Instance.Init(_config, UpdateHandler);
         await CertPemManager.Instance.Init(_config);
@@ -687,7 +700,7 @@ public partial class MainWindowViewModel : MyReactiveObject
                 {
                     return;
                 }
-               
+
                 await ProfilesViewModel.SetSpeedTestResult(new()
                 {
                     IndexId = profileItem.IndexId,

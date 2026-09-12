@@ -14,10 +14,13 @@ public class AIChatLogicTest
         var config = new AIConfigItem();
         await config.Enabled.Should().BeTrue();
         await config.AiGroupRemarks.Should().BeEqualTo("AI自动获取");
-        await config.MaxNodesPerSearch.Should().BeEqualTo(50);
+        await config.MaxNodesPerSearch.Should().BeEqualTo(100);
         await config.SearchIntervalMinutes.Should().BeEqualTo(60);
-        await config.AutoCrawlEnabled.Should().BeFalse();
-        await config.AutoCrawlIntervalMinutes.Should().BeEqualTo(120);
+        // 每日自动采集默认开启（AISchedulerService 每天跑一次）
+        await config.AutoCrawlEnabled.Should().BeTrue();
+        // 这个字段被 AISchedulerService 当作「一天里的第几小时」（0-23），不是分钟间隔，
+        // 3 = 每天凌晨 3 点。旧断言里的 120 是改成「每日定时」之前的语义，已不适用。
+        await config.AutoCrawlIntervalMinutes.Should().BeEqualTo(3);
         await config.ModelId.Should().BeEqualTo("hermesAPI");
     }
 
@@ -149,12 +152,18 @@ public class AIChatLogicTest
 
     private static string DetectProtocol(string nodeLink)
     {
-        if (nodeLink.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase)) return "VMess";
-        if (nodeLink.StartsWith("vless://", StringComparison.OrdinalIgnoreCase)) return "VLESS";
-        if (nodeLink.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase)) return "Trojan";
-        if (nodeLink.StartsWith("ss://", StringComparison.OrdinalIgnoreCase)) return "Shadowsocks";
-        if (nodeLink.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase)) return "Hysteria2";
-        if (nodeLink.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase)) return "TUIC";
+        if (nodeLink.StartsWith("vmess://", StringComparison.OrdinalIgnoreCase))
+            return "VMess";
+        if (nodeLink.StartsWith("vless://", StringComparison.OrdinalIgnoreCase))
+            return "VLESS";
+        if (nodeLink.StartsWith("trojan://", StringComparison.OrdinalIgnoreCase))
+            return "Trojan";
+        if (nodeLink.StartsWith("ss://", StringComparison.OrdinalIgnoreCase))
+            return "Shadowsocks";
+        if (nodeLink.StartsWith("hy2://", StringComparison.OrdinalIgnoreCase) || nodeLink.StartsWith("hysteria2://", StringComparison.OrdinalIgnoreCase))
+            return "Hysteria2";
+        if (nodeLink.StartsWith("tuic://", StringComparison.OrdinalIgnoreCase))
+            return "TUIC";
         return "Unknown";
     }
 

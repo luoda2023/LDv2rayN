@@ -46,6 +46,11 @@ public partial class ProfilesView
             this.BindCommand(ViewModel, vm => vm.AddSubCmd, v => v.btnAddSub).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.EditSubCmd, v => v.btnEditSub).DisposeWith(disposables);
 
+            // group right-click menu
+            this.BindCommand(ViewModel, vm => vm.DeleteSubCmd, v => v.menuGroupDelete).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.RemoveInvalidServerResultCmd, v => v.menuGroupRemoveInvalid).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.SpeedServerCmd, v => v.menuGroupSpeed).DisposeWith(disposables);
+
             //servers delete
             this.BindCommand(ViewModel, vm => vm.EditServerCmd, v => v.menuEditServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RemoveServerCmd, v => v.menuRemoveServer).DisposeWith(disposables);
@@ -67,7 +72,6 @@ public partial class ProfilesView
 
             //servers ping
             this.BindCommand(ViewModel, vm => vm.MixedTestServerCmd, v => v.menuMixedTestServer).DisposeWith(disposables);
-            this.BindCommand(ViewModel, vm => vm.TcpingServerCmd, v => v.menuTcpingServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.RealPingServerCmd, v => v.menuRealPingServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.UdpTestServerCmd, v => v.menuUdpTestServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.SpeedServerCmd, v => v.menuSpeedServer).DisposeWith(disposables);
@@ -240,7 +244,8 @@ public partial class ProfilesView
                     break;
 
                 case Key.O:
-                    ViewModel?.ServerSpeedtest(ESpeedActionType.Tcping);
+                    // 原 Tcping 快捷键改为真连接延迟：TCP 端口通≠节点可用，假延迟会让「检测正常却连不上」。快捷键保留，语义改诚实。
+                    ViewModel?.ServerSpeedtest(ESpeedActionType.Realping);
                     break;
 
                 case Key.R:

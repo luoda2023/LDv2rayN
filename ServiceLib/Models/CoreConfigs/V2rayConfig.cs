@@ -559,6 +559,17 @@ public class Sockopt4Ray
 
     public string? dialerProxy { get; set; }
 
+    /// <summary>
+    /// TCP keepalive 空闲触发秒数。NAT/防火墙会静默丢弃空闲 TCP 连接
+    /// （典型症状：连接放着不用几分钟回来就断了），启用 keepalive 保住会话。
+    /// </summary>
+    [JsonPropertyName("tcpKeepAliveIdle")]
+    public int? tcpKeepAliveIdle { get; set; }
+
+    /// <summary>TCP keepalive 探测间隔秒数。</summary>
+    [JsonPropertyName("tcpKeepAliveInterval")]
+    public int? tcpKeepAliveInterval { get; set; }
+
     [JsonPropertyName("interface")]
     public string? Interface { get; set; }
 

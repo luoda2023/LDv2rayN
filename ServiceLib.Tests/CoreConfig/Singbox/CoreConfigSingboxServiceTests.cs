@@ -490,6 +490,7 @@ public class CoreConfigSingboxServiceTests
         var config =
             CoreConfigTestFactory.CreateConfigWithDirectExpectedIPs(ECoreType.sing_box, "192.168.0.0/16,geoip:cn");
         CoreConfigTestFactory.BindAppManagerConfig(config);
+        CoreConfigTestFactory.EnsureLocalSingboxRulesetStubs("geosite-google", expectedRuleSetTag, "geoip-cn");
 
         var node = CoreConfigTestFactory.CreateSocksNode(ECoreType.sing_box, "n-main", "main");
         var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.sing_box) with

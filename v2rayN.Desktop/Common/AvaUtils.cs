@@ -39,9 +39,15 @@ internal class AvaUtils
         }
     }
 
-    public static WindowIcon GetAppIcon(ESysProxyType _)
+    /// <summary>
+    /// 品牌图标：未连接用 LDv2rayN.png（仓库根），连接成功后托盘切红色 LDv2rayN2.png。
+    /// 两张图都是仓库根目录的原文件，不许换成别的。
+    /// </summary>
+    public static WindowIcon GetAppIcon(bool connected = false)
     {
-        var uri = new Uri("avares://LDv2rayN/LDv2rayN.png");
+        var uri = connected
+            ? new Uri("avares://LDv2rayN/LDv2rayN2.png")
+            : new Uri("avares://LDv2rayN/LDv2rayN.png");
         using var bitmap = new Bitmap(AssetLoader.Open(uri));
         return new(bitmap);
     }

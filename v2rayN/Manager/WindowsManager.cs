@@ -13,7 +13,7 @@ public sealed class WindowsManager
     {
         try
         {
-            return Task.FromResult(LoadBrandIcon());
+            return Task.FromResult(LoadBrandIcon(BrandIconPath));
         }
         catch (Exception ex)
         {
@@ -22,12 +22,20 @@ public sealed class WindowsManager
         }
     }
 
-    private static Icon LoadBrandIcon()
+    /// <summary>品牌图标（未连接状态）。源文件是仓库根目录的 LDv2rayN.png，由此生成 ico。</summary>
+    public const string BrandIconPath = "/Resources/LDv2rayN.ico";
+
+    /// <summary>已连接状态的品牌图标。源文件是仓库根目录的 LDv2rayN2.png（红色）。</summary>
+    public const string BrandIconConnectedPath = "/Resources/LDv2rayN2.ico";
+
+    private static Icon LoadBrandIcon(string path)
     {
-        var resource = Application.GetResourceStream(new Uri("/Resources/LDv2rayN.png", UriKind.Relative));
+        // 必须用 .ico：System.Drawing.Icon(Stream) 只认 ico 格式，
+        // 喂 PNG 流会抛异常（这里以前就是这么错的，结果一直回退到旧图标）。
+        var resource = Application.GetResourceStream(new Uri(path, UriKind.Relative));
         if (resource?.Stream is null)
         {
-            throw new InvalidOperationException("LDv2rayN icon resource was not found.");
+            throw new InvalidOperationException($"Icon resource was not found: {path}");
         }
 
         using var stream = resource.Stream;
@@ -36,7 +44,9 @@ public sealed class WindowsManager
 
     public System.Windows.Media.ImageSource GetAppIcon(Config config)
     {
-        return new BitmapImage(new Uri("pack://application:,,,/Resources/LDv2rayN.png", UriKind.Absolute));
+        // 用 ico 而不是原图 PNG：ico 里内嵌 16/32/48/256 多尺寸，
+        // 任务栏和 Alt+Tab 的小尺寸不会糊。
+        return new BitmapImage(new Uri("pack://application:,,,/Resources/LDv2rayN.ico", UriKind.Absolute));
     }
 
     public void RegisterGlobalHotkey(Config config, Action<EGlobalHotkey> handler, Action<bool, string>? update)

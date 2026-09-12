@@ -238,6 +238,29 @@ internal static class CoreConfigTestFactory
         return config;
     }
 
+    /// <summary>
+    /// 在测试输出目录里准备好本地规则集占位文件（bin/srss/&lt;tag&gt;.srs）。
+    ///
+    /// sing-box 的配置生成在本地找不到 .srs 时，会主动把规则里的 rule_set 引用摘掉，
+    /// 以保证核心能启动（见 SingboxRulesetService）。这会让断言 "rule_set 里包含某个 tag"
+    /// 的用例变成环境相关：换了台机器就没有 srss 目录，用例必然失败。
+    /// 生产环境里这些文件是由“更新规则集”拉下来的，所以测试里补上占位文件才是
+    /// 与生产一致的前置条件。
+    /// </summary>
+    public static void EnsureLocalSingboxRulesetStubs(params string[] ruleSetTags)
+    {
+        var dir = Path.Combine(Utils.StartupPath(), "bin", "srss");
+        Directory.CreateDirectory(dir);
+        foreach (var tag in ruleSetTags.Where(t => !string.IsNullOrWhiteSpace(t)))
+        {
+            var path = Path.Combine(dir, $"{tag}.srs");
+            if (!File.Exists(path))
+            {
+                File.WriteAllBytes(path, [0x0A, 0x00]); // 空 RuleSet 消息，内容不参与断言
+            }
+        }
+    }
+
     public static Config CreateConfigWithBootstrapDNS(ECoreType coreType, string bootstrapDns = "8.8.8.8")
     {
         var config = CreateConfig(coreType);

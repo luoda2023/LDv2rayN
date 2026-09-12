@@ -241,6 +241,14 @@ public partial class CoreConfigV2rayService
 
                 var normalizedDomain = domain.Replace(Global.RoutingRuleComma, ",");
 
+                // geosite: 分类如果本地数据文件里不存在，xray DNS 同样会启动失败，这里先丢掉。
+                if (normalizedDomain.StartsWith(Global.GeoSitePrefix, StringComparison.OrdinalIgnoreCase)
+                    && !GeoAssetHelper.IsKnownCode(Global.GeoSitePrefix, normalizedDomain[Global.GeoSitePrefix.Length..]))
+                {
+                    Logging.SaveLog($"dns: 已忽略本地 geosite 数据中不存在的分类 -> {normalizedDomain}");
+                    continue;
+                }
+
                 if (item.OutboundTag == Global.DirectTag)
                 {
                     if (normalizedDomain.StartsWith(Global.GeoSitePrefix) || normalizedDomain.StartsWith("ext:"))

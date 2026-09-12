@@ -15,7 +15,7 @@
     Height="800"
     MinWidth="800"
     x:TypeArguments="vms:MainWindowViewModel"
-    Icon="/Resources/LDv2rayN.png"
+    Icon="/Resources/LDv2rayN.ico"
     ResizeMode="CanResizeWithGrip"
     ShowInTaskbar="True"
     Style="{StaticResource WindowGlobal}"
@@ -52,7 +52,7 @@
                                         <materialDesign:PackIcon
                                             Margin="{StaticResource MarginRight8}"
                                             VerticalAlignment="Center"
-                                            Kind="Server" />
+                                            Kind="ServerNetwork" />
                                         <TextBlock Text="{x:Static resx:ResUI.menuServers}" />
                                     </StackPanel>
                                 </MenuItem.Header>
@@ -143,7 +143,7 @@
                                         <materialDesign:PackIcon
                                             Margin="{StaticResource MarginRight8}"
                                             VerticalAlignment="Center"
-                                            Kind="BookClockOutline" />
+                                            Kind="CloudSync" />
                                         <TextBlock Text="{x:Static resx:ResUI.menuSubscription}" />
                                     </StackPanel>
                                 </MenuItem.Header>
@@ -178,7 +178,7 @@
                                         <materialDesign:PackIcon
                                             Margin="{StaticResource MarginRight8}"
                                             VerticalAlignment="Center"
-                                            Kind="SettingsOutline" />
+                                            Kind="Cog" />
                                         <TextBlock Text="{x:Static resx:ResUI.menuSetting}" />
                                     </StackPanel>
                                 </MenuItem.Header>
@@ -201,7 +201,7 @@
                             <materialDesign:PackIcon
                                 Margin="{StaticResource MarginRight8}"
                                 VerticalAlignment="Center"
-                                Kind="Shield" />
+                                Kind="ShieldCheck" />
                             <TextBlock Text="{x:Static resx:ResUI.menuSecurityPreset}" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -215,7 +215,7 @@
                             <materialDesign:PackIcon
                                 Margin="{StaticResource MarginRight8}"
                                 VerticalAlignment="Center"
-                                Kind="RobotOutline" />
+                                Kind="AutoAwesome" />
                             <TextBlock Text="{x:Static resx:ResUI.menuAISetting}" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -229,7 +229,7 @@
                             <materialDesign:PackIcon
                                 Margin="{StaticResource MarginRight8}"
                                 VerticalAlignment="Center"
-                                Kind="FileOutline" />
+                                Kind="FileDocument" />
                             <TextBlock Text="{x:Static resx:ResUI.menuAILog}" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -243,7 +243,7 @@
                             <materialDesign:PackIcon
                                 Margin="{StaticResource MarginRight8}"
                                 VerticalAlignment="Center"
-                                Kind="MessageTextOutline" />
+                                Kind="CommentText" />
                             <TextBlock Text="{x:Static resx:ResUI.menuAIChat}" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -257,7 +257,7 @@
                             <materialDesign:PackIcon
                                 Margin="{StaticResource MarginRight8}"
                                 VerticalAlignment="Center"
-                                Kind="LockOutline" />
+                                Kind="ShieldSearch" />
                             <TextBlock Text="{x:Static resx:ResUI.menuLeakDetection}" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -314,22 +314,19 @@
                                 x:Name="menuHelp"
                                 Padding="{StaticResource MarginLeftRight8}"
                                 AutomationProperties.Name="{x:Static resx:ResUI.menuHelp}">
-                                <MenuItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon
-                                            Margin="{StaticResource MarginRight8}"
-                                            VerticalAlignment="Center"
-                                            Kind="HelpCircleOutline" />
-                                        <TextBlock Text="{x:Static resx:ResUI.menuHelp}" />
-                                    </StackPanel>
-                                </MenuItem.Header>            <MenuItem
-                x:Name="menuPromotion"
-                Height="{StaticResource MenuItemHeight}"
-                Header="{x:Static resx:ResUI.menuPromotion}" />
-            <MenuItem
-                x:Name="menuAiProductivity"
-                Height="{StaticResource MenuItemHeight}"
-                Header="{x:Static resx:ResUI.menuAiProductivity}" />
+<MenuItem.Header>
+<StackPanel Orientation="Horizontal">
+<materialDesign:PackIcon
+Margin="{StaticResource MarginRight8}"
+VerticalAlignment="Center"
+Kind="HelpCircle" />
+<TextBlock Text="{x:Static resx:ResUI.menuHelp}" />
+</StackPanel>
+</MenuItem.Header>
+<MenuItem
+x:Name="menuAiProductivity"
+Height="{StaticResource MenuItemHeight}"
+Header="{x:Static resx:ResUI.menuAiProductivity}" />
             </MenuItem>
                         </Menu>
                         <Separator />
@@ -343,7 +340,7 @@
                                         <materialDesign:PackIcon
                                             Margin="{StaticResource MarginRight8}"
                                             VerticalAlignment="Center"
-                                            Kind="Reload" />
+                                            Kind="Refresh" />
                                         <TextBlock Text="{x:Static resx:ResUI.menuReload}" />
                                     </StackPanel>
                                 </MenuItem.Header>
@@ -360,7 +357,7 @@
                                         <materialDesign:PackIcon
                                             Margin="{StaticResource MarginRight8}"
                                             VerticalAlignment="Center"
-                                            Kind="Minimize" />
+                                            Kind="WindowMinimize" />
                                         <TextBlock Text="{x:Static resx:ResUI.menuClose}" />
                                     </StackPanel>
                                 </MenuItem.Header>
@@ -415,7 +412,7 @@
                             <TabItem x:Name="tabMsgView1">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="MessageTextOutline" />
+                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="CommentText" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -426,7 +423,7 @@
                             <TabItem x:Name="tabClashProxies1">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecisionOutline" />
+                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecision" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -456,7 +453,7 @@
                             <TabItem x:Name="tabProfiles2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="Server" />
+                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ServerNetwork" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -467,7 +464,7 @@
                             <TabItem x:Name="tabMsgView2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="MessageTextOutline" />
+                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="CommentText" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -478,7 +475,7 @@
                             <TabItem x:Name="tabClashProxies2">
                                 <TabItem.Header>
                                     <StackPanel>
-                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecisionOutline" />
+                                        <materialDesign:PackIcon HorizontalAlignment="Center" Kind="ArrowDecision" />
                                         <TextBlock
                                             HorizontalAlignment="Center"
                                             Style="{StaticResource ToolbarTextBlock}"
@@ -499,46 +496,68 @@
             </Grid>
             </Grid>
             </DockPanel>
-            <materialDesign:Snackbar x:Name="MainSnackbar" MessageQueue="{materialDesign:MessageQueue}" />
-            <!-- Floating AI assistant button with ring progress (bottom-right) -->
-            <Grid HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,12,12">
-                <!-- Ring Progress (behind button) -->
-                <Ellipse x:Name="aiProgressRing"
-                         Width="52" Height="52"
-                         StrokeThickness="3"
-                         Stroke="{DynamicResource MaterialDesignPrimary}"
-                         Fill="Transparent"
-                         Visibility="Collapsed"
-                         RenderTransformOrigin="0.5,0.5">
-                    <Ellipse.RenderTransform>
-                        <RotateTransform x:Name="aiProgressRotate" Angle="0"/>
-                    </Ellipse.RenderTransform>
-                    <Ellipse.Style>
-                        <Style TargetType="Ellipse">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsAIProcessing, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Ellipse.Style>
-                    <Ellipse.Clip>
-                        <EllipseGeometry Center="26,26" RadiusX="25" RadiusY="25"/>
-                    </Ellipse.Clip>
-                </Ellipse>
-                
-                <Button x:Name="btnAiAssistant"
-                        Width="44" Height="44"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Style="{StaticResource MaterialDesignFloatingActionMiniButton}"
-                        Background="{DynamicResource MaterialDesignCardBackground}"
-                        Foreground="{DynamicResource MaterialDesignBody}"
-                        BorderBrush="{DynamicResource MaterialDesignDivider}"
-                        BorderThickness="1"
-                        ToolTip="AI 智能代理助手">
-                    <materialDesign:PackIcon Kind="RobotOutline" Width="22" Height="22"/>
-                </Button>
+            <!-- 提示条（Snackbar）默认贴着窗口最底部，会压住底部状态栏。
+                 外面套一层底对齐的容器并留出 57 DIP 的下边距，
+                 等于把提示条整体上移 1.5cm（1.5 ÷ 2.54 × 96 ≈ 57 DIP，96 DPI 下）。
+                 用外层容器而不是直接改 Snackbar 的 Margin，是为了不覆盖它自身样式里的边距。 -->
+            <Grid
+                Margin="0,0,0,57"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Bottom">
+                <materialDesign:Snackbar x:Name="MainSnackbar" MessageQueue="{materialDesign:MessageQueue}" />
             </Grid>
+<!-- Floating AI assistant button with ring progress (bottom-right) -->
+<Grid HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,50,50"
+Width="90" Height="90">
+<!-- Pulsing white glow behind button when AI is working -->
+<Ellipse x:Name="aiGlow"
+Width="90" Height="90"
+Fill="#4CAF50"
+Visibility="Collapsed">
+<Ellipse.Effect>
+<BlurEffect Radius="20"/>
+</Ellipse.Effect>
+</Ellipse>
+
+<!-- Ring Progress: a light arc traveling around the circle -->
+<Grid x:Name="aiProgressRing"
+Width="74" Height="74"
+Visibility="Collapsed"
+RenderTransformOrigin="0.5,0.5">
+<Grid.RenderTransform>
+<RotateTransform x:Name="aiProgressRotate" Angle="0"/>
+</Grid.RenderTransform>
+<!-- Dim base ring -->
+<Ellipse Width="74" Height="74"
+Stroke="{DynamicResource MaterialDesignDivider}"
+StrokeThickness="4"
+Fill="Transparent"
+Opacity="0.3"/>
+<!-- Bright traveling arc (quarter circle) -->
+<Path Width="74" Height="74" StrokeThickness="4"
+Stroke="{DynamicResource MaterialDesign.Brush.Primary}"
+StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+Fill="Transparent">
+<Path.Data>
+<PathGeometry>
+<PathFigure StartPoint="37,0">
+<ArcSegment x:Name="aiArc" Size="37,37"
+Point="37,74"
+SweepDirection="Clockwise"
+IsLargeArc="False"/>
+</PathFigure>
+</PathGeometry>
+</Path.Data>
+</Path>
+</Grid>
+
+ <Button x:Name="btnAiAssistant"
+ HorizontalAlignment="Center" VerticalAlignment="Center"
+ Style="{StaticResource FabButton}"
+ ToolTip="AI 智能代理助手">
+ <materialDesign:PackIcon Kind="Robot" Width="22" Height="22"/>
+ </Button>
+</Grid>
             </Grid>
             </materialDesign:DialogHost>
 </base:WindowBase>

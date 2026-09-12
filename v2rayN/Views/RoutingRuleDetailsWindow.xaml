@@ -114,7 +114,7 @@
                     x:Name="btnSelectProfile"
                     Margin="{StaticResource Margin4}"
                     Content="{x:Static resx:ResUI.TbSelectProfile}"
-                    Style="{StaticResource DefButton}" />
+                    Style="{StaticResource SecondaryButton}" />
                 <TextBlock
                     Margin="{StaticResource Margin4}"
                     VerticalAlignment="Center"
@@ -169,7 +169,7 @@
                 Style="{StaticResource ToolbarTextBlock}">
                 <Hyperlink Click="linkRuleobjectDoc_Click">
                     <TextBlock Text="{x:Static resx:ResUI.TbRuleobjectDoc}" />
-                    <materialDesign:PackIcon Kind="Link" />
+                    <materialDesign:PackIcon Kind="OpenInNew" />
                 </Hyperlink>
             </TextBlock>
 
@@ -247,7 +247,7 @@
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
 
         <Grid Margin="{StaticResource Margin8}">

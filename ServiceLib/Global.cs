@@ -169,14 +169,39 @@ public const string DownloadUrl = "https://download.dicad.cn";
         @"https://speedtest.luoda.cn/10mb.test",
     ];
 
+    /// <summary>
+    /// 延迟/连通性探测地址。
+    ///
+    /// 必须选「一定会走代理」的地址。主配置默认是白名单路由，
+    /// 会把 `geosite:cn` / `geoip:cn` 直接放行（direct）；一旦用百度、腾讯、
+    /// 淘宝这类国内站点做探测，请求根本不进代理节点，走的是本地直连——
+    /// 于是**节点全挂也会显示「连接成功 + 几十毫秒的低延迟」**。
+    /// 这正是「明明延迟和速度都有，就是连不上」的根源：那个延迟测的不是节点。
+    ///
+    /// 下面这些 `generate_204` 端点不属于任何国内直连规则，必然落到 proxy 出站，
+    /// 且只回一个空的 204，体积极小，专门用于连通性探测。
+    /// </summary>
     public static readonly List<string> SpeedPingTestUrls =
+    [
+        @"https://www.gstatic.com/generate_204",
+        @"https://connectivitycheck.gstatic.com/generate_204",
+        @"https://cp.cloudflare.com/generate_204",
+        @"https://www.google.com/generate_204",
+        @"https://www.youtube.com/generate_204",
+    ];
+
+    /// <summary>
+    /// 历史上被当作延迟探测地址的国内站点。它们在白名单路由下会被直连，
+    /// 用来探测节点连通性没有任何意义，仅用于把老配置迁移掉。
+    /// </summary>
+    public static readonly List<string> LegacyDirectProbeUrls =
     [
         @"https://www.baidu.com/",
         @"https://www.qq.com/",
         @"https://www.taobao.com/",
         @"https://www.jd.com/",
         @"https://www.bilibili.com/",
-        @"https://www.apple.com/library/test/success.html"
+        @"https://www.apple.com/library/test/success.html",
     ];
 
     public static readonly List<string> GeoFilesSources =

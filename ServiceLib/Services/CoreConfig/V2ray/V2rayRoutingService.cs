@@ -136,8 +136,22 @@ public partial class CoreConfigV2rayService
                     }
                     it.domain[k] = it.domain[k].Replace(Global.RoutingRuleComma, ",");
                 }
-                _coreConfig.routing.rules.Add(it);
-                hasDomainIp = true;
+                // 丢掉本地 geosite.dat 里不存在的分类（如数据升级后已改名的 wikipedia），
+                // 否则 xray 启动时会因 code not found 直接退出。
+                var droppedDomains = GeoAssetHelper.SanitizeGeoItems(it.domain);
+                if (droppedDomains.Count > 0)
+                {
+                    Logging.SaveLog($"routing: 已忽略本地 geosite 数据中不存在的分类 -> {string.Join(", ", droppedDomains)}");
+                }
+                if (it.domain.Count == 0)
+                {
+                    it.domain = null;
+                }
+                else
+                {
+                    _coreConfig.routing.rules.Add(it);
+                    hasDomainIp = true;
+                }
             }
             if (userRule.ip?.Count > 0)
             {
@@ -145,8 +159,20 @@ public partial class CoreConfigV2rayService
                 it.domain = null;
                 it.process = null;
                 it.type = "field";
-                _coreConfig.routing.rules.Add(it);
-                hasDomainIp = true;
+                var droppedIps = GeoAssetHelper.SanitizeGeoItems(it.ip);
+                if (droppedIps.Count > 0)
+                {
+                    Logging.SaveLog($"routing: 已忽略本地 geoip 数据中不存在的分类 -> {string.Join(", ", droppedIps)}");
+                }
+                if (it.ip.Count == 0)
+                {
+                    it.ip = null;
+                }
+                else
+                {
+                    _coreConfig.routing.rules.Add(it);
+                    hasDomainIp = true;
+                }
             }
             if (userRule.process?.Count > 0)
             {

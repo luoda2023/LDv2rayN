@@ -133,10 +133,6 @@
                         <MenuItem x:Name="menuRemoveInvalidServerResult" Header="{x:Static resx:ResUI.menuRemoveInvalidServerResult}" />
                         <Separator />
                         <MenuItem
-                            x:Name="menuTcpingServer"
-                            Header="{x:Static resx:ResUI.menuTcpingServer}"
-                            InputGesture="Ctrl+O" />
-                        <MenuItem
                             x:Name="menuRealPingServer"
                             Header="{x:Static resx:ResUI.menuRealPingServer}"
                             InputGesture="Ctrl+R" />

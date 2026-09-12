@@ -19,6 +19,24 @@ public class CoreManager
     private Func<bool, string, Task>? _updateFunc;
     private const string _tag = "CoreHandler";
 
+    /// <summary>
+    /// Init 是否已完成。AI 自动采集是在 AppManager.InitApp() 末尾就用 Task.Run 起跑的，
+    /// 那个时刻 <see cref="_config"/> 还是 null，清理步骤里的
+    /// LoadCoreConfigSpeedtest 会拿到空配置直接抛 NullReferenceException
+    /// （实测日志里连续 24 次 CleanInvalidNodesInGroup failed: Arg_NullReferenceException）。
+    /// 采集侧靠这个标志等应用初始化完再动手。
+    /// </summary>
+    public bool IsInitialized { get; private set; }
+
+    /// <summary>
+    /// 主动停止标记：手动停止/重载/应用退出时置 true，此时进程退出属正常淘汰，
+    /// 不触发自动重启；LoadCore 成功起新核心后复位为 false。
+    /// </summary>
+    private bool _deliberateStop;
+
+    /// <summary>自动重启的时间戳窗口（10 分钟内最多 3 次，防崩溃循环空转）。</summary>
+    private readonly List<DateTime> _autoRestartTimestamps = [];
+
     public async Task Init(Config config, Func<bool, string, Task> updateFunc)
     {
         _config = config;
@@ -55,6 +73,8 @@ public class CoreManager
                 }
             }
         }
+
+        IsInitialized = true;
     }
 
     /// <param name="mainContext">Resolved main context (with pre-socks ports already merged if applicable).</param>
@@ -79,8 +99,10 @@ public class CoreManager
         await UpdateFunc(false, $"{node.GetSummary()}");
         await UpdateFunc(false, $"{Utils.GetRuntimeInfo()}");
         await UpdateFunc(false, string.Format(ResUI.StartService, DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")));
+        _deliberateStop = true;
         await CoreStop();
         await Task.Delay(100);
+        _deliberateStop = false;
 
         if (Utils.IsWindows() && (mainContext?.IsTunEnabled == true || preContext?.IsTunEnabled == true))
         {
@@ -161,6 +183,10 @@ public class CoreManager
     {
         try
         {
+            // 主动停止（手动停/应用退出/换节点前的清理）：期间的进程退出是正常淘汰，
+            // 不触发自动重启。LoadCore 的重启路径结束后会自行复位。
+            _deliberateStop = true;
+
             // Kill Switch: activate before stopping core if TUN was active
             if (_wasTunActive && _config?.TunModeItem.EnableKillSwitch == true)
             {
@@ -204,12 +230,26 @@ public class CoreManager
             {
                 try
                 {
+                    // 只响应「当前正在服务」的核心：reload/换节点时旧进程被
+                    // CoreStop 杀掉也会触发 Exited，那种属于正常淘汰。
+                    if (!ReferenceEquals(sender, _processService?.Process))
+                    {
+                        return;
+                    }
+                    if (_deliberateStop)
+                    {
+                        return;
+                    }
+
                     // Process exited — activate Kill Switch if TUN was active
                     if (_wasTunActive && _config?.TunModeItem.EnableKillSwitch == true)
                     {
                         Logging.SaveLog("Core process exited unexpectedly — activating Kill Switch");
                         await KillSwitchHandler.Activate(_config);
                     }
+
+                    // 核心意外退出（崩溃/被误杀）→ 自动拉起，防止一次崩溃变成永久断网
+                    await TryAutoRestartCore();
                 }
                 catch (Exception ex)
                 {
@@ -224,6 +264,42 @@ public class CoreManager
         {
             Logging.SaveLog(_tag, ex);
         }
+    }
+
+    /// <summary>
+    /// 核心进程意外退出后的自动重启（10 分钟窗口内最多 3 次，防止崩溃循环空转）。
+    /// 用当前默认节点重建配置并整体走一遍 LoadCore（含入站端口等待）。
+    /// </summary>
+    private async Task TryAutoRestartCore()
+    {
+        var now = DateTime.UtcNow;
+        _autoRestartTimestamps.RemoveAll(t => now - t > TimeSpan.FromMinutes(10));
+        if (_autoRestartTimestamps.Count >= 3)
+        {
+            await UpdateFunc(true, "核心进程意外退出且自动重启已达上限（10 分钟内 3 次），已停止自动重启。请检查节点或手动重载。");
+            return;
+        }
+        _autoRestartTimestamps.Add(now);
+
+        await UpdateFunc(true, $"核心进程意外退出，正在自动重启（第 {_autoRestartTimestamps.Count}/3 次）...");
+        await Task.Delay(1000);
+
+        var profileItem = await ConfigHandler.GetDefaultServer(_config);
+        if (profileItem == null)
+        {
+            await UpdateFunc(true, "自动重启失败：当前没有选中可用节点。");
+            return;
+        }
+
+        var allResult = await CoreConfigContextBuilder.BuildAll(_config, profileItem);
+        if (allResult == null || allResult.MainResult?.Context == null)
+        {
+            await UpdateFunc(true, "自动重启失败：节点配置生成异常。");
+            return;
+        }
+
+        await LoadCore(allResult.MainResult.Context, allResult.PreSocksResult?.Context);
+        await UpdateFunc(true, "核心自动重启完成。");
     }
 
     private async Task CoreStart(CoreConfigContext context)

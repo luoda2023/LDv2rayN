@@ -43,7 +43,7 @@
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
         <ScrollViewer
             materialDesign:ScrollViewerAssist.IsAutoHideEnabled="True"
@@ -184,7 +184,7 @@
                         Grid.Column="2"
                         Margin="{StaticResource MarginLeftRight4}"
                         Content="{x:Static resx:ResUI.TbGUID}"
-                        Style="{StaticResource DefButton}" />
+                        Style="{StaticResource SecondaryButton}" />
 
                     <TextBlock
                         Grid.Row="2"
@@ -412,7 +412,7 @@
                         Grid.Column="2"
                         Margin="{StaticResource MarginLeftRight4}"
                         Content="{x:Static resx:ResUI.TbGUID}"
-                        Style="{StaticResource DefButton}" />
+                        Style="{StaticResource SecondaryButton}" />
 
                     <TextBlock
                         Grid.Row="2"
@@ -1599,12 +1599,12 @@
                                         x:Name="btnFetchCert"
                                         Margin="{StaticResource MarginLeftRight4}"
                                         Content="{x:Static resx:ResUI.TbFetchCert}"
-                                        Style="{StaticResource DefButton}" />
+                                        Style="{StaticResource SecondaryButton}" />
                                     <Button
                                         x:Name="btnFetchCertChain"
                                         Margin="{StaticResource MarginLeftRight4}"
                                         Content="{x:Static resx:ResUI.TbFetchCertChain}"
-                                        Style="{StaticResource DefButton}" />
+                                        Style="{StaticResource SecondaryButton}" />
                                 </StackPanel>
                                 <TextBlock
                                     Width="400"

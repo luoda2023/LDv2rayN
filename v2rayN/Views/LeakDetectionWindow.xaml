@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:reactiveui="http://reactiveui.net"
     xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
-    Title="🔒 Leak Detection"
+    Title="Leak Detection"
     Width="700"
     Height="550"
     x:TypeArguments="vms:LeakDetectionViewModel"
@@ -45,18 +45,23 @@
             Margin="0,8,0,0"
             HorizontalAlignment="Center"
             Orientation="Horizontal">
-            <Button
-                x:Name="btnRunDetection"
-                Width="160"
-                Margin="0,0,8,0"
-                Content="🔍 Run Detection"
-                Style="{StaticResource DefButton}" />
+<Button
+x:Name="btnRunDetection"
+Width="160"
+Margin="0,0,8,0"
+Style="{StaticResource DefButton}">
+<StackPanel Orientation="Horizontal">
+<materialDesign:PackIcon Kind="ShieldSearch" Width="16" Height="16" Margin="0,0,6,0"
+VerticalAlignment="Center" />
+<TextBlock Text="Run Detection" VerticalAlignment="Center" />
+</StackPanel>
+</Button>
             <Button
                 x:Name="btnClose"
                 Width="100"
                 Content="Close"
                 IsCancel="True"
-                Style="{StaticResource DefButton}" />
+                Style="{StaticResource SecondaryButton}" />
         </StackPanel>
 
         <!-- Center: Test Results -->

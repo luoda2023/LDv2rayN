@@ -64,6 +64,9 @@ public partial class CoreConfigV2rayService(CoreConfigContext context)
             {
                 ApplyFinalFragment();
             }
+            ApplyOutboundBindInterface();
+            ApplyOutboundSendThrough();
+            ApplyOutboundKeepAlive();
 
             var finalRule = BuildFinalRule();
             if (!string.IsNullOrEmpty(finalRule?.balancerTag))
@@ -125,81 +128,18 @@ public partial class CoreConfigV2rayService(CoreConfigContext context)
                 {
                     continue;
                 }
-                var actIndexId = context.ServerTestItemMap.GetValueOrDefault(it.IndexId, it.IndexId);
-                var item = context.AllProxiesMap.GetValueOrDefault(actIndexId);
-                if (item is null || item.ConfigType is EConfigType.Custom || !item.IsValid())
-                {
-                    continue;
-                }
 
-                //find unused port
-                var port = initPort;
-                for (var k = initPort; k < Global.MaxPort; k++)
+                // 单个节点生成失败（畸形 finalmask、非法传输参数等）只跳过该节点，
+                // 绝不能让异常冒出去把整份测速配置废掉——否则整批节点的真实延迟
+                // 验证全部落空，清理步骤还会把「全测不通」误判成本地断网。
+                try
                 {
-                    if (lstIpEndPoints?.FindIndex(_it => _it.Port == k) >= 0)
-                    {
-                        continue;
-                    }
-                    if (lstTcpConns?.FindIndex(_it => _it.LocalEndPoint.Port == k) >= 0)
-                    {
-                        continue;
-                    }
-                    //found
-                    port = k;
-                    initPort = port + 1;
-                    break;
+                    AppendSpeedtestNode(it, lstIpEndPoints, lstTcpConns, ref initPort);
                 }
-
-                //Port In Used
-                if (lstIpEndPoints?.FindIndex(_it => _it.Port == port) >= 0)
+                catch (Exception ex)
                 {
-                    continue;
+                    Logging.SaveLog($"{_tag}: skip speedtest node {it.IndexId}", ex);
                 }
-                it.Port = port;
-                it.AllowTest = true;
-
-                //inbound
-                Inbounds4Ray inbound = new()
-                {
-                    listen = Global.Loopback,
-                    port = port,
-                    protocol = nameof(EInboundProtocol.mixed),
-                    settings = new Inboundsettings4Ray()
-                    {
-                        udp = true,
-                        auth = "noauth"
-                    },
-                };
-                inbound.tag = inbound.protocol + inbound.port.ToString();
-                _coreConfig.inbounds.Add(inbound);
-
-                var tag = Global.ProxyTag + inbound.port.ToString();
-                var isBalancer = false;
-                //outbound
-                var proxyOutbounds =
-                    new CoreConfigV2rayService(context with { Node = item }).BuildAllProxyOutbounds(tag);
-                _coreConfig.outbounds.AddRange(proxyOutbounds);
-                if (proxyOutbounds.Count(n => n.tag.StartsWith(tag)) > 1)
-                {
-                    isBalancer = true;
-                    var multipleLoad = _node.GetProtocolExtra().MultipleLoad ?? EMultipleLoad.LeastPing;
-                    GenObservatory(multipleLoad, tag);
-                    GenBalancer(multipleLoad, tag);
-                }
-
-                //rule
-                RulesItem4Ray rule = new()
-                {
-                    inboundTag = [inbound.tag],
-                    outboundTag = tag,
-                    type = "field"
-                };
-                if (isBalancer)
-                {
-                    rule.balancerTag = tag + Global.BalancerTagSuffix;
-                    rule.outboundTag = null;
-                }
-                _coreConfig.routing.rules.Add(rule);
             }
 
             if (_config.CoreBasicItem.EnableFragment)
@@ -212,6 +152,7 @@ public partial class CoreConfigV2rayService(CoreConfigContext context)
             }
             ApplyOutboundBindInterface();
             ApplyOutboundSendThrough();
+            ApplyOutboundKeepAlive();
             //ret.Msg =string.Format(ResUI.SuccessfulConfiguration"), node.getSummary());
             ret.Success = true;
             ret.Data = ApplyCustomOutboundReplace();
@@ -223,6 +164,92 @@ public partial class CoreConfigV2rayService(CoreConfigContext context)
             ret.Msg = ResUI.FailedGenDefaultConfiguration;
             return ret;
         }
+    }
+
+    /// <summary>
+    /// 为一个测速节点追加独立入站 + 出站 + 路由规则。
+    /// 从 <see cref="GenerateClientSpeedtestConfig(List{ServerTestItem})"/> 拆出来，
+    /// 让调用方可以按节点兜住异常——这里抛错只影响该节点自己的入库，
+    /// 不再连坐整份配置。
+    /// </summary>
+    private void AppendSpeedtestNode(ServerTestItem it, List<IPEndPoint>? lstIpEndPoints,
+        List<TcpConnectionInformation>? lstTcpConns, ref int initPort)
+    {
+        var actIndexId = context.ServerTestItemMap.GetValueOrDefault(it.IndexId, it.IndexId);
+        var item = context.AllProxiesMap.GetValueOrDefault(actIndexId);
+        if (item is null || item.ConfigType is EConfigType.Custom || !item.IsValid())
+        {
+            return;
+        }
+
+        //find unused port
+        var port = initPort;
+        for (var k = initPort; k < Global.MaxPort; k++)
+        {
+            if (lstIpEndPoints?.FindIndex(_it => _it.Port == k) >= 0)
+            {
+                continue;
+            }
+            if (lstTcpConns?.FindIndex(_it => _it.LocalEndPoint.Port == k) >= 0)
+            {
+                continue;
+            }
+            //found
+            port = k;
+            initPort = port + 1;
+            break;
+        }
+
+        //Port In Used
+        if (lstIpEndPoints?.FindIndex(_it => _it.Port == port) >= 0)
+        {
+            return;
+        }
+        it.Port = port;
+        it.AllowTest = true;
+
+        //inbound
+        Inbounds4Ray inbound = new()
+        {
+            listen = Global.Loopback,
+            port = port,
+            protocol = nameof(EInboundProtocol.mixed),
+            settings = new Inboundsettings4Ray()
+            {
+                udp = true,
+                auth = "noauth"
+            },
+        };
+        inbound.tag = inbound.protocol + inbound.port.ToString();
+        _coreConfig.inbounds.Add(inbound);
+
+        var tag = Global.ProxyTag + inbound.port.ToString();
+        var isBalancer = false;
+        //outbound
+        var proxyOutbounds =
+            new CoreConfigV2rayService(context with { Node = item }).BuildAllProxyOutbounds(tag);
+        _coreConfig.outbounds.AddRange(proxyOutbounds);
+        if (proxyOutbounds.Count(n => n.tag.StartsWith(tag)) > 1)
+        {
+            isBalancer = true;
+            var multipleLoad = item.GetProtocolExtra().MultipleLoad ?? EMultipleLoad.LeastPing;
+            GenObservatory(multipleLoad, tag);
+            GenBalancer(multipleLoad, tag);
+        }
+
+        //rule
+        RulesItem4Ray rule = new()
+        {
+            inboundTag = [inbound.tag],
+            outboundTag = tag,
+            type = "field"
+        };
+        if (isBalancer)
+        {
+            rule.balancerTag = tag + Global.BalancerTagSuffix;
+            rule.outboundTag = null;
+        }
+        _coreConfig.routing.rules.Add(rule);
     }
 
     public RetResult GenerateClientSpeedtestConfig(int port)
@@ -287,7 +314,7 @@ public partial class CoreConfigV2rayService(CoreConfigContext context)
                 ApplyFinalFragment();
             }
             ApplyOutboundBindInterface();
-            ApplyOutboundSendThrough();
+            ApplyOutboundKeepAlive();
 
             ret.Msg = string.Format(ResUI.SuccessfulConfiguration, "");
             ret.Success = true;

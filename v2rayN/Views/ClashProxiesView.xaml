@@ -61,20 +61,16 @@
 
             <Button
                 x:Name="menuProxiesReload"
-                Width="24"
-                Height="24"
                 Margin="{StaticResource MarginLeftRight8}"
-                Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                Style="{StaticResource IconButton}"
                 ToolTip="{x:Static resx:ResUI.menuProxiesReload}">
-                <materialDesign:PackIcon VerticalAlignment="Center" Kind="Reload" />
+                <materialDesign:PackIcon VerticalAlignment="Center" Kind="Refresh" />
             </Button>
 
             <Button
                 x:Name="menuGroupProxiesDelaytest"
-                Width="24"
-                Height="24"
                 Margin="{StaticResource MarginLeftRight8}"
-                Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                Style="{StaticResource IconButton}"
                 ToolTip="{x:Static resx:ResUI.menuDelaytest}">
                 <materialDesign:PackIcon VerticalAlignment="Center" Kind="LightningBolt" />
             </Button>

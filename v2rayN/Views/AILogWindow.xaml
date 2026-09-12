@@ -139,8 +139,8 @@
    </DockPanel>
   </Border>
   <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-   <Button x:Name="btnRefresh" Content="Refresh" Width="100" Margin="0,0,8,0" Padding="8,4" Click="BtnRefresh_Click"/>
-   <Button x:Name="btnClose" Content="Close" Width="100" Padding="8,4" IsCancel="True"/>
+   <Button x:Name="btnRefresh" Width="100" Margin="0,0,8,0" Content="Refresh" Style="{StaticResource DefButton}" Click="BtnRefresh_Click"/>
+   <Button x:Name="btnClose" Width="100" Content="Close" IsCancel="True" Style="{StaticResource SecondaryButton}"/>
   </StackPanel>
  </Grid>
 </Window>

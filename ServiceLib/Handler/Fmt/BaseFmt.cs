@@ -213,15 +213,18 @@ public class BaseFmt
         var finalmaskDecoded = GetQueryDecoded(query, "fm");
         if (finalmaskDecoded.IsNotEmpty())
         {
-            var node = JsonUtils.ParseJson(finalmaskDecoded);
-            item.Finalmask = node != null
-                ? JsonUtils.Serialize(node, new JsonSerializerOptions
+            // 入库前先规范化：xray 对 fragment mask 的 length 字段有硬性要求，
+            // 一条带坏 fm 的节点混进批量测速配置会把整份配置拖垮
+            // （实测报 LengthMin can't be 0，整批节点全部验证失败）。
+            var normalized = FinalmaskNormalizer.Normalize(finalmaskDecoded);
+            item.Finalmask = normalized != null
+                ? JsonUtils.Serialize(normalized, new JsonSerializerOptions
                 {
                     WriteIndented = true,
                     DefaultIgnoreCondition = JsonIgnoreCondition.Never,
                     Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
                 })
-                : finalmaskDecoded;
+                : string.Empty;
         }
         else
         {

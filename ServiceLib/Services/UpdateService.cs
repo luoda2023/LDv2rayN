@@ -5,7 +5,6 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
     private readonly Config? _config = config;
     private readonly Func<bool, string, Task>? _updateFunc = updateFunc;
     private readonly int _timeout = 30;
-    private static readonly string _tag = "UpdateService";
 
     public async Task UpdateGeoFileAll(bool blProxy = true)
     {
@@ -17,6 +16,46 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
         requests.Reverse();
         await DownloadGeoFiles(requests, blProxy);
         await UpdateFunc(true, string.Format(ResUI.MsgDownloadGeoFileSuccessfully, "geo"));
+    }
+
+    /// <summary>
+    /// 启动自愈：本地缺少 geosite.dat / geoip.dat 时（典型场景是全新解压的发布包，
+    /// publish 不会带上这两个文件，它们平时是运行时按需下载的）立即补下载。
+    ///
+    /// 缺文件时 xray 会在启动阶段直接报 `failed to open file: geosite.dat` 并退出，
+    /// 用户看到的现象是「有节点、有延迟，但内核起不来 / 一个都连不上」，
+    /// 而且报错藏在日志里，很难自己定位到是数据文件缺失。
+    ///
+    /// 文件都在时只做两次 File.Exists，不产生任何网络开销；
+    /// 只在缺失时才走下载（此时本来也起不来，多等一会儿远好于静默失败）。
+    /// 代理此时尚未启动，只能直连，失败不阻断启动。
+    /// </summary>
+    public async Task EnsureGeoFilesAsync()
+    {
+        var missing = new List<string>();
+        foreach (var name in new[] { "geosite.dat", "geoip.dat" })
+        {
+            try
+            {
+                var path = Utils.GetBinPath(name);
+                if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                {
+                    missing.Add(name);
+                }
+            }
+            catch
+            {
+                missing.Add(name);
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        await UpdateFunc(false, string.Format(ResUI.MsgDownloadGeoFileSuccessfully, string.Join(", ", missing)));
+        await DownloadGeoFiles(GetGeoFilesRequest(), blProxy: false);
     }
 
     #region Geo private

@@ -5,22 +5,22 @@ on:
     branches:
       - main
     paths:
-  - 'ServiceLib/**'
-  - 'ServiceLib.UdpTest/**'
-  - 'ServiceLib.Tests/**'
-  - 'Directory.Build.*'
-  - 'Directory.Packages.props'
+      - 'ServiceLib/**'
+      - 'ServiceLib.UdpTest/**'
+      - 'ServiceLib.Tests/**'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
       - 'global.json'
       - '.github/workflows/test.yml'
   pull_request:
     branches:
       - main
     paths:
-  - 'ServiceLib/**'
-  - 'ServiceLib.UdpTest/**'
-  - 'ServiceLib.Tests/**'
-  - 'Directory.Build.*'
-  - 'Directory.Packages.props'
+      - 'ServiceLib/**'
+      - 'ServiceLib.UdpTest/**'
+      - 'ServiceLib.Tests/**'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
       - 'global.json'
       - '.github/workflows/test.yml'
 

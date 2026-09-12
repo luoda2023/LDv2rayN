@@ -73,9 +73,14 @@ jobs:
       with:
         dotnet-version: 10.0.1xx
         
+    # NOTE: do NOT add `working-directory: ./v2rayN` here.
+    # $Project already carries the path from the repo root
+    # (./v2rayN/v2rayN.csproj or ./v2rayN.Desktop/v2rayN.Desktop.csproj).
+    # Adding the working directory made it resolve to
+    # ./v2rayN/./v2rayN/v2rayN.csproj and every platform died with
+    # "MSBUILD : error MSB1009: Project file does not exist."
     - name: Build v2rayN
       shell: bash
-      working-directory: ./v2rayN
       run: dotnet publish $Project -c Release -r $RID -p:SelfContained=true $ExtOpt -o $Output
 
     - name: Remove Debug Symbols

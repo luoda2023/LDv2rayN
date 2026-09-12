@@ -10,8 +10,10 @@ on:
         required: true
         type: string
     secrets:
+      # 非必填：未配置时 upload-sign 会自动降级为「不签名发布」。
+      # 声明成 required: true 会让 secrets: inherit 的调用方在缺少该密钥时校验失败。
       GPG_PRIVATE_KEY:
-        required: true
+        required: false
 
 permissions:
   contents: write

@@ -7,8 +7,9 @@ on:
         required: true
         type: string
     secrets:
+      # 未配置时整个「发布签名公钥」流程自动跳过（不再报错）
       GPG_PRIVATE_KEY:
-        required: true
+        required: false
   workflow_dispatch:
     inputs:
       release_tag:
@@ -21,8 +22,11 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-26.04
+    env:
+      HAS_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY != '' }}
     steps:
     - name: Import GPG private key
+      if: env.HAS_GPG_KEY == 'true'
       shell: bash
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -32,6 +36,7 @@ jobs:
         printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
 
     - name: Export GPG public key
+      if: env.HAS_GPG_KEY == 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -40,6 +45,7 @@ jobs:
         gpg --batch --armor --export "$fingerprint" > v2rayN-public-key.asc
 
     - name: Upload GPG public key to release
+      if: env.HAS_GPG_KEY == 'true'
       uses: svenstaro/upload-release-action@v2
       with:
         file: v2rayN-public-key.asc
